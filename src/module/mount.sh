@@ -1,3 +1,3 @@
 #!/bin/bash
 make
-sudo insmod user_mode_sched.ko
+sudo insmod ums_device.ko

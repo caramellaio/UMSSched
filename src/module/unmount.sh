@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo rmmod user_mode_sched.ko
+sudo rmmod ums_device.ko
