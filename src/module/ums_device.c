@@ -9,7 +9,8 @@
 #include <linux/sched.h>
 #include <asm/uaccess.h> /* for put_user */
 
-#include "user_mode_sched.h"
+#include "ums_device.h"
+#include "../shared/ums_request.h"
 
 #define MODULE_NAME_LOG "umsdev: "
 
@@ -20,6 +21,7 @@
 static long device_ioctl(struct file *file, unsigned int request, unsigned long data);
 
 #define SUCCESS 0
+#define FAILURE -1
 #define DEVICE_NAME "usermodscheddev"
 #define BUF_LEN 80
 
@@ -72,6 +74,33 @@ void cleanup_module(void)
 static long device_ioctl(struct file *file, unsigned int request, unsigned long data)
 {
     printk(KERN_DEBUG MODULE_NAME_LOG "device_ioctl: pid->%d, path=%s, request=%u\n", current->pid, file->f_path.dentry->d_iname, request);
+
+    switch (request) {
+      case UMS_REQUEST_ENTER_UMS_SCHEDULING:
+        {
+
+        }
+        break;
+
+      case UMS_REQUEST_REGISTER_SCHEDULER_THREAD:
+        {
+
+        }
+        break;
+
+      case UMS_REQUEST_NEW_COMPLETION_LIST:
+        {
+
+        }
+        break;
+
+      case UMS_REQUEST_REGISTER_COMPLETION_ELEM:
+        {
+
+        }
+        break;
+      default: return FAILURE;
+    }
 
     return SUCCESS;
 }
