@@ -90,7 +90,7 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		/* in case of a single parameter, we can get it directly from data */
 		int comp_list = (int)data;
 
-		printk(KERN_DEBUG "Calling ums_sched_add...\n");
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_sched_add...\n");
 
 		err = ums_sched_add(comp_list, &result);
 
@@ -99,7 +99,7 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 			return FAILURE;
 			
 
-		printk(KERN_INFO "ums scheduler entry %d created.\n", result);
+		printk(KERN_INFO MODULE_NAME_LOG "ums scheduler entry %d created.\n", result);
 		/* TODO: I will use `copy_to_user` in order to return the id */
 		if (copy_to_user(&data, &result, sizeof(int)))
 			return FAILURE;
