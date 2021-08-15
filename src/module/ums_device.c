@@ -85,19 +85,24 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	switch (request) {
 	case UMS_REQUEST_ENTER_UMS_SCHEDULING:
 	{
+		int err = 0;
 		int result = 0;
-		/* TODO: get from 'data', also use correct DS */
-		int comp_list = -1;
-		int err = ums_sched_add(comp_list, &result);
+		/* in case of a single parameter, we can get it directly from data */
+		int comp_list = (int)data;
+
+		printk(KERN_DEBUG "Calling ums_sched_add...\n");
+
+		err = ums_sched_add(comp_list, &result);
 
 		/* TODO: Use better errors */
 		if (err)
 			return FAILURE;
 			
 
+		printk(KERN_INFO "ums scheduler entry %d created.\n", result);
 		/* TODO: I will use `copy_to_user` in order to return the id */
-		// if (copy_to_user(..))
-		//	return FAILURE;
+		if (copy_to_user(&data, &result, sizeof(int)))
+			return FAILURE;
 
 	}
 	break;
