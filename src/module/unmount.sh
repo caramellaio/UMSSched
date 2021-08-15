@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo rmmod ums_device.ko
+sudo rmmod ums_mod.ko
