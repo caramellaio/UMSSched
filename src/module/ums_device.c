@@ -88,7 +88,7 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		int result = 0;
 		/* TODO: get from 'data', also use correct DS */
 		int comp_list = -1;
-		int err = ums_sched_new(comp_list, &result);
+		int err = ums_sched_add(comp_list, &result);
 
 		/* TODO: Use better errors */
 		if (err)
