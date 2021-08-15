@@ -10,9 +10,15 @@
 #include <asm/uaccess.h> /* for put_user */
 
 #include "ums_device.h"
+#include "ums_scheduler.h"
+/* TODO: Move ums requests in another file */
 #include "../shared/ums_request.h"
 
 #define MODULE_NAME_LOG "umsdev: "
+
+MODULE_LICENSE("GPL");
+
+MODULE_AUTHOR("Alberto Bombardelli");
 
 /*
  * Prototypes - this would normally go in a .h file
@@ -79,13 +85,37 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	switch (request) {
 	case UMS_REQUEST_ENTER_UMS_SCHEDULING:
 	{
+		int result = 0;
+		/* TODO: get from 'data', also use correct DS */
+		int comp_list = -1;
+		int err = ums_sched_new(comp_list, &result);
+
+		/* TODO: Use better errors */
+		if (err)
+			return FAILURE;
+			
+
+		/* TODO: I will use `copy_to_user` in order to return the id */
+		// if (copy_to_user(..))
+		//	return FAILURE;
 
 	}
 	break;
 
+	/* Required parameters:
+	 * ums_sched_id
+	 * task_struct (from current)
+	 * cpu to set
+	*/
 	case UMS_REQUEST_REGISTER_SCHEDULER_THREAD:
 	{
-
+		/* register a scheduler thread for CPU i */
+		/* TODO: this comment is on how to set the correct CPU
+		struct cpumask mask;
+		cpumask_clear(&mask);
+		cpumask_set_cpu(num_cpu, &mask);
+		sched_setaffinity(pid, &mask)
+		*/
 	}
 	break;
 
@@ -106,6 +136,3 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	return SUCCESS;
 }
 
-MODULE_LICENSE("GPL");
-
-MODULE_AUTHOR("Alberto Bombardelli");
