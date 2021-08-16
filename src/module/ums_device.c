@@ -115,19 +115,38 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	*/
 	case UMS_REQUEST_REGISTER_SCHEDULER_THREAD:
 	{
-		/* register a scheduler thread for CPU i */
-		/* TODO: this comment is on how to set the correct CPU
-		struct cpumask mask;
-		cpumask_clear(&mask);
-		cpumask_set_cpu(num_cpu, &mask);
-		sched_setaffinity(pid, &mask)
-		*/
+		struct reg_sched_thread_msg msg;
+		int err;
+
+		err = copy_from_user(&msg, &data, sizeof(msg));
+
+		if (err)
+			return FAILURE;
+
+		err = ums_sched_register_sched_thread(msg.sched_id, msg.cpu);
+
+		if (err)
+			return FAILURE;
+		
+		printk(KERN_INFO MODULE_NAME_LOG 
+		       "ums_sched %d, created new thread for cpu %d\n",
+		       msg.sched_id, msg.cpu);
 	}
 	break;
 
+#if 0
+	case UMS_REQUEST_YIELD:
+	{
+		struct task_struct* curr = current;
+		struct pt_regs* regs = current_pt_regs();
+
+		ums_sched_yield()
+	}
+	break;
+#endif
+
 	case UMS_REQUEST_NEW_COMPLETION_LIST:
 	{
-
 	}
 	break;
 
