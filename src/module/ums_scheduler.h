@@ -19,6 +19,8 @@ int ums_sched_add(comp_list_id comp_list_id, ums_sched_id* identifier);
 
 int ums_sched_remove(ums_sched_id identifier);
 
+int ums_sched_register_sched_thread(ums_sched_id sched_id, int cpu);
+
 void ums_sched_cleanup(void);
 
 #endif /* __UMS_SCHEDULER_H__ */

@@ -38,6 +38,34 @@ int ums_sched_add(comp_list_id comp_list_id, ums_sched_id* identifier)
 }
 
 
+int ums_sched_register_sched_thread(ums_sched_id sched_id, int cpu)
+{
+	int res = 0;
+	struct task_struct *worker = NULL;
+	struct ums_scheduler* sched;
+
+       	get_sched_by_id(sched_id, &sched);
+
+	if (unlikely(!sched)) {
+		res = -1;
+		goto register_thread_exit;
+	}
+
+	worker = *per_cpu_ptr(sched->workers, cpu);
+
+	/* Error: already registered */
+	if (worker) {
+		res = -2; 
+		goto register_thread_exit;
+	}
+
+	/* set the task_struct* to the current one. */
+	*per_cpu_ptr(sched->workers, cpu) = current;
+
+	set_task_cpu(current, cpu);
+register_thread_exit:
+	return res;
+}
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);
