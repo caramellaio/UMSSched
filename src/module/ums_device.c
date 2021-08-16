@@ -54,10 +54,11 @@ int init_module(void)
 	ret = misc_register(&mdev);
 
 	if (ret < 0) {
-		printk(KERN_ALERT MODULE_NAME_LOG "Registering char device failed\n");
+		printk(KERN_ALERT MODULE_NAME_LOG "Registering ums device failed\n");
 		return ret;
 	}
 
+	ums_sched_init();
 	printk(KERN_DEBUG MODULE_NAME_LOG "Device registered successfully\n");
 
 	return SUCCESS;
