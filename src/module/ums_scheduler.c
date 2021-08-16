@@ -1,5 +1,15 @@
 #include "ums_scheduler.h"
 #include <linux/slab.h>
+#include <linux/percpu.h>
+#include <linux/sched.h>
+#include <linux/hashtable.h>
+
+struct ums_scheduler {
+	ums_sched_id			id;
+	comp_list_id			comp_id;
+	struct hlist_node		list;
+	struct task_struct __percpu  	**workers;
+};
 
 static DEFINE_HASHTABLE(ums_sched_hash, UMS_SCHED_HASH_BITS);
 
