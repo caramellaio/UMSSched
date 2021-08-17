@@ -6,7 +6,7 @@
 
 struct ums_scheduler {
 	ums_sched_id			id;
-	comp_list_id			comp_id;
+	ums_complist_id			comp_id;
 	struct hlist_node		list;
 	struct task_struct __percpu  	**workers;
 };
@@ -17,12 +17,12 @@ static atomic_t ums_sched_counter = ATOMIC_INIT(0);
 
 static void init_ums_scheduler(struct ums_scheduler* sched, 
 			       ums_sched_id id,
-			       comp_list_id comp_id);
+			       ums_complist_id comp_id);
 
 static void get_sched_by_id(ums_sched_id id, 
 			    struct ums_scheduler** sched);
 
-int ums_sched_add(comp_list_id comp_list_id, ums_sched_id* identifier)
+int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
 	struct ums_scheduler* ums_sched = NULL;
 
@@ -79,7 +79,7 @@ void ums_sched_cleanup(void)
 
 static void init_ums_scheduler(struct ums_scheduler* sched, 
 			       ums_sched_id id,
-			       comp_list_id comp_id) 
+			       ums_complist_id comp_id) 
 {
 	int cpu;
 

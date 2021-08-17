@@ -11,6 +11,7 @@
 
 #include "ums_device.h"
 #include "ums_scheduler.h"
+#include "ums_complist.h"
 /* TODO: Move ums requests in another file */
 #include "../shared/ums_request.h"
 
