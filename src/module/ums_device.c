@@ -148,6 +148,23 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 
 	case UMS_REQUEST_NEW_COMPLETION_LIST:
 	{
+		int err = 0;
+		int result = 0;
+
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_complist_add...\n");
+
+		err = ums_complist_add(&result);
+
+		/* TODO: Use better errors */
+		if (err)
+			return FAILURE;
+			
+
+		printk(KERN_INFO MODULE_NAME_LOG "ums completion list entry %d created.\n", result);
+		/* TODO: I will use `copy_to_user` in order to return the id */
+		if (copy_to_user(&data, &result, sizeof(int)))
+			return FAILURE;
+
 	}
 	break;
 
