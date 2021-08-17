@@ -1,4 +1,7 @@
 #include "ums_complist.h"
+#include <linux/kfifo.h>
+#include <linux/hashtable.h>
+#include <linux/slab.h>
 
 struct ums_complist {
 	ums_complist_id comp_id;
@@ -12,11 +15,14 @@ static DEFINE_HASHTABLE(ums_compelem_hash, UMS_COMPELEM_HASH_BITS);
 static atomic_t ums_complist_counter = ATOMIC_INIT(0);
 static atomic_t ums_compelem_counter = ATOMIC_INIT(0);
 
-static void new_complist(ums_complist_id comp_id,
+static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
 
 int ums_complist_add(ums_complist_id *result)
 {
+	int res;
+	struct ums_complist* ums_complist;
+
 	*result = atomic_inc_return(&ums_complist_counter);
 
 	ums_complist = (struct ums_complist*) kmalloc(sizeof(struct ums_complist),
@@ -38,6 +44,9 @@ int ums_complist_init(void)
 {
 	hash_init(ums_complist_hash);
 	hash_init(ums_compelem_hash);
+
+	/* TODO: check hash_init retval */
+	return 0;
 }
 
 static int new_complist(ums_complist_id comp_id,
