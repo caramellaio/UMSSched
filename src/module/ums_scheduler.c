@@ -43,7 +43,7 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id, unsigned int cpu)
 	int res = 0;
 	struct task_struct *worker = NULL;
 	struct ums_scheduler* sched;
-	struct cpumask mask;
+	//struct cpumask mask;
 
        	get_sched_by_id(sched_id, &sched);
 
@@ -63,9 +63,9 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id, unsigned int cpu)
 	/* set the task_struct* to the current one. */
 	*per_cpu_ptr(sched->workers, cpu) = current;
 
-	cpumask_clear(&mask);
-	cpumask_set_cpu(cpu, &mask);
-	sched_setaffinity(current->pid, &mask);
+	//cpumask_clear(&mask);
+	//cpumask_set_cpu(cpu, &mask);
+	//sched_setaffinity(current->pid, &mask);
 
 register_thread_exit:
 	return res;
