@@ -93,6 +93,22 @@ int ums_complist_remove(ums_complist_id id)
 int ums_complist_map(ums_complist_id list_id,
 		     ums_compelem_id elem_id)
 {
+	struct ums_complist *complist;
+	struct ums_compelem *compelem;
+	struct ums_complist_id_list *complist_entry;
+
+	get_from_compelem_id(elem_id, &compelem);
+	get_from_complist_id(list_id, &complist);
+
+	if (! compelem || !complist)
+		return -1;
+
+	/* TODO: check retvals */
+	kfifo_in(complist->ready_queue, &elem_id, sizeof(elem_id));
+
+	complist_entry = kmalloc(sizeof(struct ums_complist_id_list), GFP_KERNEL);
+	list_add(&complist_entry->list, &compelem->complist_id_list);
+
 	return 0;
 }
 
