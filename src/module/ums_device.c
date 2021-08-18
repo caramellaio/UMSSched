@@ -175,18 +175,63 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 			
 
 		printk(KERN_INFO MODULE_NAME_LOG "ums completion list entry %d created.\n", result);
-		/* TODO: I will use `copy_to_user` in order to return the id */
+
 		if (copy_to_user(&data, &result, sizeof(int)))
 			return FAILURE;
 
 	}
 	break;
 
-	case UMS_REQUEST_REGISTER_COMPLETION_ELEM:
+	case UMS_REQUEST_REMOVE_COMPLETION_LIST:
 	{
+		int err = 0;
 
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_complist_remove...\n");
+
+		err = ums_complist_remove((int)data);
+
+		if (err)
+			return FAILURE;
+
+		printk(KERN_INFO MODULE_NAME_LOG "ums completion list entry %d removed.\n", 
+		       (int)data);
 	}
 	break;
+
+	case UMS_REQUEST_REGISTER_COMPLETION_ELEM:
+	{
+		int err = 0;
+		int result = 0;
+
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_compelem_add\n...");
+
+		err = ums_compelem_add(&result, (int)data);
+
+		if (err)
+			return FAILURE;
+
+		printk(KERN_INFO MODULE_NAME_LOG "ums completion elem entry %d created.\n", result);
+
+		if (copy_to_user(&data, &result, sizeof(int)))
+			return FAILURE;
+	}
+	break;
+
+	case UMS_REQUEST_REMOVE_COMPLETION_ELEM:
+	{
+		int err = 0;
+
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_compelem_remove\n...");
+		err = ums_compelem_remove((int)data);
+
+		if (err)
+			return FAILURE;
+
+		printk(KERN_INFO MODULE_NAME_LOG "ums completion elem entry %d removed.\n",
+		       (int)data);
+	}
+	break;
+
 	default: return FAILURE;
 	}
 

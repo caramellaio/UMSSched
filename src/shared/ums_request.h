@@ -10,6 +10,9 @@
 
 #define UMS_REQUEST_REGISTER_COMPLETION_ELEM 3
 
+#define UMS_REQUEST_REMOVE_COMPLETION_LIST 4
+
+#define UMS_REQUEST_REMOVE_COMPLETION_ELEM 5
 
 struct reg_sched_thread_msg {
 	ums_sched_id sched_id;
