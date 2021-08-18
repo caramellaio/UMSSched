@@ -18,9 +18,11 @@ struct ums_complist_id {
 struct ums_compelem {
 	ums_compelem_id id;
 	struct hlist_node list;
+	
+	/* list<ums_complist_id> */
+	struct list_head complist_id_list;
 
-	/* TODO: as it is or as a pointer? */
-	struct ums_complist_id list_ids;
+	struct task_struct* elem_task;
 };
 
 
@@ -47,14 +49,15 @@ int ums_complist_add(ums_complist_id *result)
 						      GFP_KERNEL);
 
 	if (! ums_complist) {
-		kfree(ums_complist);	
-		res =-1;
-		goto exit_complist_add;
+		return -1;
 	}
 
 	res = new_complist(*result, ums_complist);
 
-exit_complist_add:
+	if (res) {
+		kfree(ums_complist);
+	}
+
 	return res;
 }
 
@@ -71,7 +74,21 @@ int ums_complist_map(ums_complist_id list_id,
 
 int ums_compelem_add(ums_compelem_id* result)
 {
-	return 0;
+	struct ums_compelem *comp_elem;
+	int res = 0;
+
+	*result = atomic_inc_return(&ums_compelem_counter);
+
+	comp_elem = (struct ums_compelem*) kmalloc(sizeof(struct ums_compelem),
+						  GFP_KERNEL);
+
+	if (! comp_elem) {
+		return -1;
+	}
+
+	res = new_compelement(*result, comp_elem);
+
+	return res;
 }
 
 int ums_compelem_remove(ums_compelem_id id)
@@ -112,7 +129,15 @@ new_complist_exit:
 }
 
 static int new_compelement(ums_compelem_id elem_id,
-			   struct ums_compelem *compelem)
+			   struct ums_compelem *comp_elem)
 {
+	comp_elem->id = elem_id;
+
+	INIT_LIST_HEAD(&comp_elem->complist_id_list);
+
+	comp_elem->elem_task = current;
+
+	hash_add(ums_compelem_hash, &comp_elem->list, comp_elem->id);
+	/* TODO: set a correct return value */
 	return 0;
 }
