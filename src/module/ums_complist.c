@@ -43,8 +43,6 @@ static void get_from_complist_id(ums_complist_id id,
 static void complist_register_compelem(struct ums_complist *complist,
 				       struct ums_compelem *compelem);
 
-static void compelem_remove(ums_compelem_id id);
-
 int ums_complist_add(ums_complist_id *result)
 {
 	int res;
@@ -81,10 +79,10 @@ int ums_complist_remove(ums_complist_id id)
 	hash_del(&complist->list);
 
 	while (kfifo_out(complist->ready_queue, &compelem_id, sizeof(compelem_id)))
-		compelem_remove(compelem_id);
+		ums_compelem_remove(compelem_id);
 
 	while (kfifo_out(complist->busy_queue, &compelem_id, sizeof(compelem_id)))
-		compelem_remove(compelem_id);
+		ums_compelem_remove(compelem_id);
 
 	kfifo_free(complist->busy_queue);
 	kfifo_free(complist->ready_queue);
@@ -118,6 +116,17 @@ int ums_compelem_add(ums_compelem_id* result,
 
 int ums_compelem_remove(ums_compelem_id id)
 {
+	struct ums_compelem *compelem;
+
+	get_from_compelem_id(id, &compelem);
+
+	if (! compelem)
+		return -1;
+
+	hash_del(&compelem->list);
+
+	kfree(compelem);
+
 	return 0;
 }
 
@@ -203,15 +212,4 @@ static void complist_register_compelem(struct ums_complist *complist,
 				       struct ums_compelem *compelem)
 {
 	kfifo_in(complist->ready_queue, &compelem, sizeof(compelem));
-}
-
-static void compelem_remove(ums_compelem_id id)
-{
-	struct ums_compelem *compelem;
-
-	get_from_compelem_id(id, &compelem);
-
-	hash_del(&compelem->list);
-
-	kfree(compelem);
 }
