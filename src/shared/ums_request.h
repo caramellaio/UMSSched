@@ -14,8 +14,10 @@
 
 #define UMS_REQUEST_REMOVE_COMPLETION_ELEM 5
 
+#define UMS_REQUEST_REGISTER_ENTRY_POINT 6
 struct reg_sched_thread_msg {
 	ums_sched_id sched_id;
 	int cpu;
 };
+
 #endif /* __UMS_REQUEST_H__ */

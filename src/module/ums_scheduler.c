@@ -9,6 +9,7 @@ struct ums_scheduler {
 	ums_complist_id			comp_id;
 	struct hlist_node		list;
 	struct task_struct __percpu  	**workers;
+	struct task_struct		*entry_point;
 };
 
 static DEFINE_HASHTABLE(ums_sched_hash, UMS_SCHED_HASH_BITS);
@@ -26,7 +27,8 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
 	struct ums_scheduler* ums_sched = NULL;
 
-	// if (! ums_comp_list_get(comp_list_id))
+	 if (! ums_complist_exists(comp_list_id))
+		return -1;
 	//	return ERROR_MISSING_COMPLIST;
 
 	*identifier = atomic_inc_return(&ums_sched_counter);
@@ -70,6 +72,25 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id, unsigned int cpu)
 register_thread_exit:
 	return res;
 }
+
+int ums_sched_register_entry_point(ums_sched_id sched_id)
+{
+	struct ums_scheduler* sched;
+
+	get_sched_by_id(sched_id, &sched);
+
+	if (!sched)
+		return -1;
+
+	sched->entry_point = current;
+
+	/* block the process */
+	set_current_state(TASK_INTERRUPTIBLE);
+	schedule();
+
+	return 0;
+}
+
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);
@@ -99,6 +120,8 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	for_each_possible_cpu(cpu) {
 		*per_cpu_ptr(sched->workers, cpu) = NULL;
 	}
+
+	sched->entry_point = NULL;
 }
 
 static void get_sched_by_id(ums_sched_id id, 

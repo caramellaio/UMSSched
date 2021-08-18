@@ -19,6 +19,8 @@ int ums_sched_remove(ums_sched_id identifier);
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id, unsigned int cpu);
 
+int ums_sched_register_entry_point(ums_sched_id sched_id);
+
 void ums_sched_cleanup(void);
 
 #endif /* __UMS_SCHEDULER_H__ */

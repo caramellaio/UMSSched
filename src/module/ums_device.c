@@ -149,6 +149,13 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	}
 	break;
 
+	case UMS_REQUEST_REGISTER_ENTRY_POINT:
+	{
+		int err;
+
+		err = ums_sched_register_entry_point((int)data);
+	}
+	break;
 #if 0
 	case UMS_REQUEST_YIELD:
 	{
