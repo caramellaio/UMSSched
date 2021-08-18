@@ -5,9 +5,24 @@
 
 struct ums_complist {
 	ums_complist_id comp_id;
+	struct hlist_node list;
 	struct kfifo *busy_queue;
 	struct kfifo *ready_queue;
 };
+
+struct ums_complist_id {
+	ums_complist_id id;
+	struct list_head list;
+};
+
+struct ums_compelem {
+	ums_compelem_id id;
+	struct hlist_node list;
+
+	/* TODO: as it is or as a pointer? */
+	struct ums_complist_id list_ids;
+};
+
 
 static DEFINE_HASHTABLE(ums_complist_hash, UMS_COMPLIST_HASH_BITS);
 static DEFINE_HASHTABLE(ums_compelem_hash, UMS_COMPELEM_HASH_BITS);
