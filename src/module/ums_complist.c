@@ -57,8 +57,17 @@ static int new_complist(ums_complist_id comp_id,
 	complist->comp_id = comp_id;
 	res = kfifo_alloc(complist->busy_queue, PAGE_SIZE, GFP_KERNEL);
 
-	if (! res)
-		kfifo_alloc(complist->ready_queue, PAGE_SIZE, GFP_KERNEL);
+	if (res)
+		goto new_complist_exit;
 
+	res = kfifo_alloc(complist->ready_queue, PAGE_SIZE, GFP_KERNEL);
+
+	if (res) {
+		kfifo_free(complist->busy_queue);
+		goto new_complist_exit;
+	}
+	hash_add(ums_complist_hash, &complist->list, complist->comp_id);
+
+new_complist_exit:
 	return res;
 }
