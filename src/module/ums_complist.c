@@ -33,6 +33,9 @@ static atomic_t ums_compelem_counter = ATOMIC_INIT(0);
 static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
 
+static int new_compelement(ums_compelem_id elem_id,
+			   struct ums_compelem *compelem);
+
 int ums_complist_add(ums_complist_id *result)
 {
 	int res;
@@ -53,6 +56,27 @@ int ums_complist_add(ums_complist_id *result)
 
 exit_complist_add:
 	return res;
+}
+
+int ums_complist_remove(ums_complist_id id)
+{
+	return 0;
+}
+
+int ums_complist_map(ums_complist_id list_id,
+		     ums_compelem_id elem_id)
+{
+	return 0;
+}
+
+int ums_compelem_add(ums_compelem_id* result)
+{
+	return 0;
+}
+
+int ums_compelem_remove(ums_compelem_id id)
+{
+	return 0;
 }
 
 int ums_complist_init(void)
@@ -85,4 +109,10 @@ static int new_complist(ums_complist_id comp_id,
 
 new_complist_exit:
 	return res;
+}
+
+static int new_compelement(ums_compelem_id elem_id,
+			   struct ums_compelem *compelem)
+{
+	return 0;
 }
