@@ -4,13 +4,13 @@
 #include <linux/slab.h>
 
 struct ums_complist {
-	ums_complist_id comp_id;
+	ums_complist_id id;
 	struct hlist_node list;
 	struct kfifo *busy_queue;
 	struct kfifo *ready_queue;
 };
 
-struct ums_complist_id {
+struct ums_complist_id_list {
 	ums_complist_id id;
 	struct list_head list;
 };
@@ -38,6 +38,12 @@ static int new_complist(ums_complist_id comp_id,
 static int new_compelement(ums_compelem_id elem_id,
 			   struct ums_compelem *compelem);
 
+static void get_from_compelem_id(ums_compelem_id id,
+				struct ums_compelem** compelem);
+
+static void get_from_complist_id(ums_complist_id id,
+				struct ums_complist** complist);
+
 int ums_complist_add(ums_complist_id *result)
 {
 	int res;
@@ -63,6 +69,24 @@ int ums_complist_add(ums_complist_id *result)
 
 int ums_complist_remove(ums_complist_id id)
 {
+	struct ums_complist *complist;
+	ums_compelem_id compelem_id;
+
+	get_from_complist_id(id, &complist);
+
+	if (! complist)
+		return -1;
+
+	hash_del(&complist->list);
+
+	while (kfifo_out(complist->ready_queue, &compelem_id, sizeof(compelem_id)))
+		ums_complist_unmap(id, compelem_id);
+
+	while (kfifo_out(complist->busy_queue, &compelem_id, sizeof(compelem_id)))
+		ums_complist_unmap(id, compelem_id);
+
+	kfifo_free(complist->busy_queue);
+	kfifo_free(complist->ready_queue);
 	return 0;
 }
 
@@ -70,6 +94,33 @@ int ums_complist_map(ums_complist_id list_id,
 		     ums_compelem_id elem_id)
 {
 	return 0;
+}
+
+/* TODO: This function should be probably static! */
+int ums_complist_unmap(ums_complist_id list_id,
+		       ums_compelem_id elem_id)
+{
+	struct list_head *current_id_list;
+	struct ums_compelem *compelem;
+	struct ums_complist *complist;
+
+	get_from_compelem_id(elem_id, &compelem);
+	get_from_complist_id(list_id, &complist);
+
+	if (! compelem || !complist)
+		return -1;
+
+	list_for_each(current_id_list, &compelem->complist_id_list) {
+		struct ums_complist_id_list *current_id;
+		current_id = list_entry(current_id_list, struct ums_complist_id_list, list);
+
+		if (current_id->id == list_id) {
+			list_del(current_id_list);
+			return 0;
+		} 
+	}
+
+	return -1;
 }
 
 int ums_compelem_add(ums_compelem_id* result)
@@ -110,7 +161,7 @@ static int new_complist(ums_complist_id comp_id,
 {
 	int res;
 
-	complist->comp_id = comp_id;
+	complist->id = comp_id;
 	res = kfifo_alloc(complist->busy_queue, PAGE_SIZE, GFP_KERNEL);
 
 	if (res)
@@ -122,7 +173,7 @@ static int new_complist(ums_complist_id comp_id,
 		kfifo_free(complist->busy_queue);
 		goto new_complist_exit;
 	}
-	hash_add(ums_complist_hash, &complist->list, complist->comp_id);
+	hash_add(ums_complist_hash, &complist->list, complist->id);
 
 new_complist_exit:
 	return res;
@@ -140,4 +191,26 @@ static int new_compelement(ums_compelem_id elem_id,
 	hash_add(ums_compelem_hash, &comp_elem->list, comp_elem->id);
 	/* TODO: set a correct return value */
 	return 0;
+}
+
+static void get_from_complist_id(ums_complist_id id,
+				struct ums_complist** complist)
+{
+	*complist = NULL;
+
+	hash_for_each_possible(ums_complist_hash, *complist, list, id) {
+		if ((*complist)->id == id)
+			break;
+	}
+}
+
+static void get_from_compelem_id(ums_compelem_id id,
+				struct ums_compelem** compelem)
+{
+	*compelem = NULL;
+
+	hash_for_each_possible(ums_compelem_hash, *compelem, list, id) {
+		if ((*compelem)->id == id)
+			break;
+	}
 }

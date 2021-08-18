@@ -12,6 +12,9 @@ int ums_complist_remove(ums_complist_id id);
 int ums_complist_map(ums_complist_id list_id,
 		     ums_compelem_id elem_id);
 
+int ums_complist_unmap(ums_complist_id list_id,
+		       ums_compelem_id elem_id);
+
 int ums_compelem_add(ums_compelem_id* result);
 
 int ums_compelem_remove(ums_compelem_id id);

@@ -104,6 +104,8 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 static void get_sched_by_id(ums_sched_id id, 
 			    struct ums_scheduler** sched)
 {
+	*sched = NULL;
+
 	hash_for_each_possible(ums_sched_hash, *sched, list, id) {
 		if ((*sched)->id == id) break;
 	}
