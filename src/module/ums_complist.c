@@ -10,17 +10,12 @@ struct ums_complist {
 	struct kfifo *ready_queue;
 };
 
-struct ums_complist_id_list {
-	ums_complist_id id;
-	struct list_head list;
-};
-
 struct ums_compelem {
 	ums_compelem_id id;
+	ums_complist_id list_id;
 	struct hlist_node list;
 	
 	/* list<ums_complist_id> */
-	struct list_head complist_id_list;
 
 	struct task_struct* elem_task;
 };
@@ -36,13 +31,19 @@ static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
 
 static int new_compelement(ums_compelem_id elem_id,
-			   struct ums_compelem *compelem);
+			   ums_complist_id list_id,
+			   struct ums_compelem *comp_elem);
 
 static void get_from_compelem_id(ums_compelem_id id,
 				struct ums_compelem** compelem);
 
 static void get_from_complist_id(ums_complist_id id,
 				struct ums_complist** complist);
+
+static void complist_register_compelem(struct ums_complist *complist,
+				       struct ums_compelem *compelem);
+
+static void compelem_remove(ums_compelem_id id);
 
 int ums_complist_add(ums_complist_id *result)
 {
@@ -80,81 +81,38 @@ int ums_complist_remove(ums_complist_id id)
 	hash_del(&complist->list);
 
 	while (kfifo_out(complist->ready_queue, &compelem_id, sizeof(compelem_id)))
-		ums_complist_unmap(id, compelem_id);
+		compelem_remove(compelem_id);
 
 	while (kfifo_out(complist->busy_queue, &compelem_id, sizeof(compelem_id)))
-		ums_complist_unmap(id, compelem_id);
+		compelem_remove(compelem_id);
 
 	kfifo_free(complist->busy_queue);
 	kfifo_free(complist->ready_queue);
 	return 0;
 }
 
-int ums_complist_map(ums_complist_id list_id,
-		     ums_compelem_id elem_id)
+int ums_compelem_add(ums_compelem_id* result,
+		     ums_complist_id list_id)
 {
-	struct ums_complist *complist;
-	struct ums_compelem *compelem;
-	struct ums_complist_id_list *complist_entry;
-
-	get_from_compelem_id(elem_id, &compelem);
-	get_from_complist_id(list_id, &complist);
-
-	if (! compelem || !complist)
-		return -1;
-
-	/* TODO: check retvals */
-	kfifo_in(complist->ready_queue, &elem_id, sizeof(elem_id));
-
-	complist_entry = kmalloc(sizeof(struct ums_complist_id_list), GFP_KERNEL);
-	list_add(&complist_entry->list, &compelem->complist_id_list);
-
-	return 0;
-}
-
-/* TODO: This function should be probably static! */
-int ums_complist_unmap(ums_complist_id list_id,
-		       ums_compelem_id elem_id)
-{
-	struct list_head *current_id_list;
 	struct ums_compelem *compelem;
 	struct ums_complist *complist;
-
-	get_from_compelem_id(elem_id, &compelem);
-	get_from_complist_id(list_id, &complist);
-
-	if (! compelem || !complist)
-		return -1;
-
-	list_for_each(current_id_list, &compelem->complist_id_list) {
-		struct ums_complist_id_list *current_id;
-		current_id = list_entry(current_id_list, struct ums_complist_id_list, list);
-
-		if (current_id->id == list_id) {
-			list_del(current_id_list);
-			return 0;
-		} 
-	}
-
-	return -1;
-}
-
-int ums_compelem_add(ums_compelem_id* result)
-{
-	struct ums_compelem *comp_elem;
 	int res = 0;
 
 	*result = atomic_inc_return(&ums_compelem_counter);
 
-	comp_elem = (struct ums_compelem*) kmalloc(sizeof(struct ums_compelem),
-						  GFP_KERNEL);
+	get_from_complist_id(list_id, &complist);
 
-	if (! comp_elem) {
+	if (! complist)
 		return -1;
-	}
 
-	res = new_compelement(*result, comp_elem);
+	compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
 
+	if (! compelem) 
+		return -1;
+
+	res = new_compelement(*result, list_id, compelem);
+
+	complist_register_compelem(complist, compelem);
 	return res;
 }
 
@@ -170,6 +128,15 @@ int ums_complist_init(void)
 
 	/* TODO: check hash_init retval */
 	return 0;
+}
+
+int ums_complist_exists(ums_complist_id comp_id)
+{
+	struct ums_complist *complist = NULL;
+
+	get_from_complist_id(comp_id, &complist);
+
+	return NULL != complist;
 }
 
 static int new_complist(ums_complist_id comp_id,
@@ -196,16 +163,17 @@ new_complist_exit:
 }
 
 static int new_compelement(ums_compelem_id elem_id,
+			   ums_complist_id list_id,
 			   struct ums_compelem *comp_elem)
 {
 	comp_elem->id = elem_id;
 
-	INIT_LIST_HEAD(&comp_elem->complist_id_list);
-
 	comp_elem->elem_task = current;
 
+	comp_elem->list_id = list_id;
+
 	hash_add(ums_compelem_hash, &comp_elem->list, comp_elem->id);
-	/* TODO: set a correct return value */
+
 	return 0;
 }
 
@@ -229,4 +197,21 @@ static void get_from_compelem_id(ums_compelem_id id,
 		if ((*compelem)->id == id)
 			break;
 	}
+}
+
+static void complist_register_compelem(struct ums_complist *complist,
+				       struct ums_compelem *compelem)
+{
+	kfifo_in(complist->ready_queue, &compelem, sizeof(compelem));
+}
+
+static void compelem_remove(ums_compelem_id id)
+{
+	struct ums_compelem *compelem;
+
+	get_from_compelem_id(id, &compelem);
+
+	hash_del(&compelem->list);
+
+	kfree(compelem);
 }
