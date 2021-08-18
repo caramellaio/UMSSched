@@ -59,7 +59,21 @@ int init_module(void)
 		return ret;
 	}
 
-	ums_sched_init();
+	ret = ums_sched_init();
+
+	if (ret) {
+		printk(KERN_ALERT MODULE_NAME_LOG
+		       "Initialization of sub-module ums_sched failed!\n");
+		return ret;
+	}
+
+	ret = ums_complist_init();
+
+	if (ret) {
+		printk(KERN_ALERT MODULE_NAME_LOG
+		       "Initialization of sub-module ums_complist failed!\n");
+		return ret;
+	}
 	printk(KERN_DEBUG MODULE_NAME_LOG "Device registered successfully\n");
 
 	return SUCCESS;
