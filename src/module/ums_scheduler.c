@@ -38,11 +38,12 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 }
 
 
-int ums_sched_register_sched_thread(ums_sched_id sched_id, int cpu)
+int ums_sched_register_sched_thread(ums_sched_id sched_id, unsigned int cpu)
 {
 	int res = 0;
 	struct task_struct *worker = NULL;
 	struct ums_scheduler* sched;
+	struct cpumask mask;
 
        	get_sched_by_id(sched_id, &sched);
 
@@ -62,7 +63,10 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id, int cpu)
 	/* set the task_struct* to the current one. */
 	*per_cpu_ptr(sched->workers, cpu) = current;
 
-	set_task_cpu(current, cpu);
+	cpumask_clear(&mask);
+	cpumask_set_cpu(cpu, &mask);
+	sched_setaffinity(current->pid, &mask);
+
 register_thread_exit:
 	return res;
 }
@@ -101,5 +105,6 @@ static void get_sched_by_id(ums_sched_id id,
 			    struct ums_scheduler** sched)
 {
 	hash_for_each_possible(ums_sched_hash, *sched, list, id) {
+		if ((*sched)->id == id) break;
 	}
 }
