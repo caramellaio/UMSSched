@@ -175,9 +175,21 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	case UMS_REQUEST_REGISTER_ENTRY_POINT:
 	{
 		int err;
+		ums_sched_id *in_buf;
 
 		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_sched_register_entry_point...\n");
-		err = ums_sched_register_entry_point((int)data);
+		
+		in_buf = kmalloc(sizeof(ums_sched_id), GFP_KERNEL);
+
+		if (copy_from_user(in_buf, (void*)data, sizeof(ums_sched_id))) {
+			kfree(in_buf);
+			printk(KERN_ERR MODULE_NAME_LOG "Failed copy_from_user\n");
+			return FAILURE;
+		}
+
+		err = ums_sched_register_entry_point(*in_buf);
+
+		kfree(in_buf);
 
 		if (err) {
 			printk(KERN_ERR MODULE_NAME_LOG "register_entry_point failed!\n");
