@@ -234,7 +234,7 @@ static int __reg_thread(void *sched_thread)
 	sched_setaffinity(0, sizeof(set), &set);
 
 	res = ioctl(thread_info->fd, UMS_REQUEST_REGISTER_SCHEDULER_THREAD, 
-		    thread_info->id);
+		    &thread_info->id);
 
 	if (res)
 		return res;

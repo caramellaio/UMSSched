@@ -144,22 +144,31 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	*/
 	case UMS_REQUEST_REGISTER_SCHEDULER_THREAD:
 	{
-		struct reg_sched_thread_msg msg;
 		int err;
+		ums_sched_id* in_buf;
 
-		err = copy_from_user(&msg, &data, sizeof(msg));
+		in_buf = kmalloc(sizeof(ums_sched_id), GFP_KERNEL);
 
-		if (err)
+		if (copy_from_user(in_buf, (void*)data, sizeof(ums_sched_id))) {
+			kfree(in_buf);
+			/* TODO: temporary */
+			printk("Failed copy_from_user\n");
 			return FAILURE;
+		}
 
-		err = ums_sched_register_sched_thread(msg.sched_id, msg.cpu);
+		printk(KERN_INFO MODULE_NAME_LOG "calling ums_sched_register_sched_thread.\n");
+		err = ums_sched_register_sched_thread(*in_buf);
 
-		if (err)
+		if (err) {
+			kfree(in_buf);
 			return FAILURE;
+		}
 		
 		printk(KERN_INFO MODULE_NAME_LOG 
 		       "ums_sched %d, created new thread for cpu %d\n",
-		       msg.sched_id, msg.cpu);
+		       *in_buf, get_cpu());
+
+		kfree(in_buf);
 	}
 	break;
 
