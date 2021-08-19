@@ -10,6 +10,12 @@ struct ums_scheduler {
 	struct hlist_node		list;
 	struct task_struct __percpu  	**workers;
 	struct task_struct		*entry_point;
+	struct list_head		wait_procs;
+};
+
+struct ums_sched_wait {
+	struct task_struct *task;
+	struct list_head list;
 };
 
 static DEFINE_HASHTABLE(ums_sched_hash, UMS_SCHED_HASH_BITS);
@@ -91,6 +97,30 @@ int ums_sched_register_entry_point(ums_sched_id sched_id)
 	return 0;
 }
 
+int ums_sched_wait(ums_sched_id sched_id)
+{
+	struct ums_scheduler *sched;
+	struct ums_sched_wait *wait;
+
+	get_sched_by_id(sched_id, &sched);
+
+	if (! sched)
+		return -1;
+
+	wait = kmalloc(sizeof(struct ums_sched_wait), GFP_KERNEL);
+
+	if (! wait)
+		return -1;
+
+	wait->task = current;
+	list_add(&wait->list, &sched->wait_procs);
+
+	set_current_state(TASK_INTERRUPTIBLE);
+	schedule();
+
+	return 0;
+}
+
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);
@@ -122,6 +152,8 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	}
 
 	sched->entry_point = NULL;
+
+	INIT_LIST_HEAD(&sched->wait_procs);
 }
 
 static void get_sched_by_id(ums_sched_id id, 

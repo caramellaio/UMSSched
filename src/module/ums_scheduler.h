@@ -15,6 +15,8 @@ int ums_sched_init(void);
 
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier);
 
+int ums_sched_wait(ums_sched_id sched_id);
+
 int ums_sched_remove(ums_sched_id identifier);
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id);
