@@ -83,6 +83,17 @@ int EnterUmsSchedulingMode(ums_function entry_point,
 	return err;
 }
 
+int WaitUmsScheduler(ums_sched_id sched_id)
+{
+	int err, fd;
+
+	fd = open("/dev/usermodscheddev", 0);
+
+	err = ioctl(fd, UMS_REQUEST_WAIT_UMS_SCHEDULER, &sched_id);
+
+	return err;
+}
+
 int CreateEmptyUmsCompletionList(ums_complist_id *id)
 {
 	int fd, err;
@@ -181,6 +192,10 @@ static void register_entry_point(struct sched_entry_point sched_ep)
 	stack = malloc(TASK_STACK_SIZE);
 
 	thread_pid = create_thread(__entry_point, stack, &sched_ep);
+
+	if (thread_pid < 0) {
+		fprintf(stderr, "Fail creating thread in %s: internal error\n", __func__);
+	}
 }
 
 static void register_threads(int fd,
@@ -208,10 +223,14 @@ static int __entry_point(void *sched_ep)
 
 	struct sched_entry_point *_sched_ep = (struct sched_entry_point*)sched_ep;
 	
-	res = ioctl(_sched_ep->fd, UMS_REQUEST_REGISTER_ENTRY_POINT, _sched_ep->id);
+	fprintf(stderr, "Register entry point!\nfd=%d, id=%d", _sched_ep->fd, _sched_ep->id);
 
-	if (res)
+	res = ioctl(_sched_ep->fd, UMS_REQUEST_REGISTER_ENTRY_POINT, &_sched_ep->id);
+
+	if (res) {
+		fprintf(stderr, "Error in register_entry_point: %d\n", res);
 		return res;
+	}
 
 	/* ums_sched module should block the process here. */
 	/* The internal function will take the identifier as a parameter */
@@ -251,6 +270,8 @@ static int __reg_compelem(void *idxs)
 
 	fd = data[0];
 	id = data[1];
+
+	fprintf(stderr, "Registering new compelem to complist %d\n", id);
 
 	res = create_ums_compelem(fd, &id);
 

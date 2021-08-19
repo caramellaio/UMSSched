@@ -9,6 +9,8 @@ int EnterUmsSchedulingMode(ums_function entry_point,
                            ums_complist_id complist_id,
 			   ums_sched_id *result);
 
+int WaitUmsScheduler(ums_sched_id sched_id);
+
 int CreateEmptyUmsCompletionList(ums_complist_id *id);
 
 int CreateUmsCompletionList(ums_complist_id *id,
@@ -17,6 +19,7 @@ int CreateUmsCompletionList(ums_complist_id *id,
 
 int CreateUmsCompletionElement(ums_complist_id id,
 		               ums_function func);
+
 
 #if 0
 void ExecuteUmsThread(struct ums_scheduler* scheduler,

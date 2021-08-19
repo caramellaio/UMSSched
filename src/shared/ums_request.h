@@ -15,9 +15,6 @@
 #define UMS_REQUEST_REMOVE_COMPLETION_ELEM 1024
 
 #define UMS_REQUEST_REGISTER_ENTRY_POINT 2048
-struct reg_sched_thread_msg {
-	ums_sched_id sched_id;
-	int cpu;
-};
 
+#define UMS_REQUEST_WAIT_UMS_SCHEDULER 4096
 #endif /* __UMS_REQUEST_H__ */
