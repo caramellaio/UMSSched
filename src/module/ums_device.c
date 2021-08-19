@@ -7,6 +7,7 @@
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <asm/uaccess.h> /* for put_user */
 
 #include "ums_device.h"
@@ -104,11 +105,21 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		int err = 0;
 		int result = 0;
 		/* in case of a single parameter, we can get it directly from data */
-		int comp_list = (int)data;
+		ums_complist_id *in_buf, complist;
 
-		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_sched_add...\n");
+		in_buf = kmalloc(sizeof(ums_complist_id), GFP_KERNEL);
 
-		err = ums_sched_add(comp_list, &result);
+		if (copy_from_user(in_buf, (void*)data, sizeof(in_buf)))
+			return FAILURE;
+
+		complist = *in_buf;
+
+		kfree(in_buf);
+
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_sched_add with complist: %d...\n",
+		       complist);
+
+		err = ums_sched_add(complist, &result);
 
 		/* TODO: Use better errors */
 		if (err)
@@ -116,10 +127,13 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 			
 
 		printk(KERN_INFO MODULE_NAME_LOG "ums scheduler entry %d created.\n", result);
-		/* TODO: I will use `copy_to_user` in order to return the id */
-		if (copy_to_user(&data, &result, sizeof(int)))
-			return FAILURE;
 
+		if (copy_to_user((void*)data, &result, sizeof(int))) {
+			printk(KERN_ERR MODULE_NAME_LOG "ums_sched id copy_to_user failed!");
+			return FAILURE;
+		}
+
+		printk(KERN_INFO MODULE_NAME_LOG "ums_sched id copied to user\n");
 	}
 	break;
 
@@ -177,14 +191,18 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		err = ums_complist_add(&result);
 
 		/* TODO: Use better errors */
-		if (err)
+		if (err) {
+			printk(KERN_ERR MODULE_NAME_LOG "Error %d in ums_complist_add\n", err);
 			return FAILURE;
-			
+		}
 
 		printk(KERN_INFO MODULE_NAME_LOG "ums completion list entry %d created.\n", result);
 
-		if (copy_to_user(&data, &result, sizeof(int)))
+		if (copy_to_user((void*)data, &result, sizeof(int))) {
+			printk(KERN_ERR MODULE_NAME_LOG "copy_to_user failed!\n");
 			return FAILURE;
+		}
+		printk(KERN_INFO MODULE_NAME_LOG "ums_completion_list id copied to user\n");
 
 	}
 	break;

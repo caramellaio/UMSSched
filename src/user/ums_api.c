@@ -44,14 +44,18 @@ int EnterUmsSchedulingMode(ums_function entry_point,
                            ums_complist_id complist_id,
 			   ums_sched_id *result)
 {
-	int err, buff, fd;
+	int buff;
+	int err, fd;
 	struct sched_entry_point sched_ep;
-
-	buff = complist_id;
 
 	/* TODO: check this 0 */
 	fd = open("/dev/usermodscheddev", 0);
-	err = ioctl(fd, UMS_REQUEST_ENTER_UMS_SCHEDULING, buff);
+
+	buff = complist_id;
+
+	fprintf(stderr, "buff = %d\n", buff);
+
+	err = ioctl(fd, UMS_REQUEST_ENTER_UMS_SCHEDULING, &buff);
 
 	if (err) {
 		fprintf(stderr, "Error: cannot create User Mode Scheduler thread!\n");
