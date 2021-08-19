@@ -16,7 +16,6 @@
 
 static void* do_gen_ums_sched(void *args);
 /* TODO: Move to header */
-typedef int (*ums_function)(int);
 
 struct sched_entry_point {
 	ums_sched_id id;
