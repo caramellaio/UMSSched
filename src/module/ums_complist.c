@@ -6,8 +6,8 @@
 struct ums_complist {
 	ums_complist_id id;
 	struct hlist_node list;
-	struct kfifo *busy_queue;
-	struct kfifo *ready_queue;
+	struct kfifo busy_queue;
+	struct kfifo ready_queue;
 };
 
 struct ums_compelem {
@@ -78,14 +78,14 @@ int ums_complist_remove(ums_complist_id id)
 
 	hash_del(&complist->list);
 
-	while (kfifo_out(complist->ready_queue, &compelem_id, sizeof(compelem_id)))
+	while (kfifo_out(&complist->ready_queue, &compelem_id, sizeof(compelem_id)))
 		ums_compelem_remove(compelem_id);
 
-	while (kfifo_out(complist->busy_queue, &compelem_id, sizeof(compelem_id)))
+	while (kfifo_out(&complist->busy_queue, &compelem_id, sizeof(compelem_id)))
 		ums_compelem_remove(compelem_id);
 
-	kfifo_free(complist->busy_queue);
-	kfifo_free(complist->ready_queue);
+	kfifo_free(&complist->busy_queue);
+	kfifo_free(&complist->ready_queue);
 	return 0;
 }
 
@@ -153,16 +153,20 @@ static int new_complist(ums_complist_id comp_id,
 {
 	int res;
 
+	printk("calling: %s", __func__);
 	complist->id = comp_id;
-	res = kfifo_alloc(complist->busy_queue, PAGE_SIZE, GFP_KERNEL);
+	res = kfifo_alloc(&complist->busy_queue, PAGE_SIZE, GFP_KERNEL);
+
+	printk("busy alloced!");
 
 	if (res)
 		goto new_complist_exit;
 
-	res = kfifo_alloc(complist->ready_queue, PAGE_SIZE, GFP_KERNEL);
+	res = kfifo_alloc(&complist->ready_queue, PAGE_SIZE, GFP_KERNEL);
 
+	printk("ready alloced!");
 	if (res) {
-		kfifo_free(complist->busy_queue);
+		kfifo_free(&complist->busy_queue);
 		goto new_complist_exit;
 	}
 	hash_add(ums_complist_hash, &complist->list, complist->id);
@@ -211,5 +215,5 @@ static void get_from_compelem_id(ums_compelem_id id,
 static void complist_register_compelem(struct ums_complist *complist,
 				       struct ums_compelem *compelem)
 {
-	kfifo_in(complist->ready_queue, &compelem, sizeof(compelem));
+	kfifo_in(&complist->ready_queue, &compelem, sizeof(compelem));
 }
