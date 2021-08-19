@@ -179,8 +179,10 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_sched_register_entry_point...\n");
 		err = ums_sched_register_entry_point((int)data);
 
-		if (err)
+		if (err) {
+			printk(KERN_ERR MODULE_NAME_LOG "register_entry_point failed!\n");
 			return FAILURE;
+		}
 	}
 	break;
 #if 0
