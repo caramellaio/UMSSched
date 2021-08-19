@@ -137,6 +137,19 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	}
 	break;
 
+	case UMS_REQUEST_WAIT_UMS_SCHEDULER:
+	{
+		int err = 0;
+		ums_complist_id id = (ums_complist_id)data;
+
+		err = ums_sched_wait(id);
+
+		if (err)
+			return FAILURE;
+
+		printk(KERN_INFO MODULE_NAME_LOG "scheduler %d ended.\n", id);
+	}
+	break;
 	/* Required parameters:
 	 * ums_sched_id
 	 * task_struct (from current)
