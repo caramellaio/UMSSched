@@ -11,6 +11,8 @@
 #include <fcntl.h>
 
 #define TASK_STACK_SIZE 65536
+#define create_ums_complist(fd, id) ioctl(fd, UMS_REQUEST_NEW_COMPLETION_LIST, id)
+#define create_ums_compelem(fd, id) ioctl(fd, UMS_REQUEST_REGISTER_COMPLETION_ELEM, id)
 
 static void* do_gen_ums_sched(void *args);
 /* TODO: Move to header */
@@ -37,6 +39,7 @@ static int __entry_point(void *sched_ep);
 
 static int __reg_thread(void *sched_thread);
 
+static int __reg_compelem(void *idxs);
 
 int EnterUmsSchedulingMode(ums_function entry_point,
                            ums_complist_id complist_id,
@@ -70,6 +73,64 @@ int EnterUmsSchedulingMode(ums_function entry_point,
 	return err;
 }
 
+int CreateEmptyUmsCompletionList(ums_complist_id *id)
+{
+	int fd, err;
+
+	fd = open("/dev/usermodscheddev", 0);
+
+	create_ums_complist(fd, id);
+	err = create_ums_complist(fd, id);
+
+	close(fd);
+
+	return err;
+}
+
+int CreateUmsCompletionList(ums_complist_id *id,
+			    ums_function *list,
+			    int list_count)
+{
+	int fd, i;
+	int data[2];
+
+
+	fd = open("/dev/usermodscheddev", 0);
+	create_ums_complist(fd, id);
+
+	data[0] = fd;
+	data[1] = *id;
+
+	for (i = 0; i < list_count; i++) {
+		void *stack = malloc(TASK_STACK_SIZE);
+		
+		clone(__reg_compelem, stack + TASK_STACK_SIZE, 
+		      CLONE_VM | CLONE_THREAD, data);
+		      
+	}
+
+	return 0;
+}
+
+int CreateUmsCompletionElement(ums_complist_id id,
+		               ums_function func)
+{
+	int fd;
+	int data[2];
+	void *stack;
+
+	fd = open("/dev/usermodscheddev", 0);
+
+	data[0] = fd;
+	data[1] = id;
+
+	stack = malloc(TASK_STACK_SIZE);
+
+	clone(__reg_compelem, stack + TASK_STACK_SIZE,
+	      CLONE_VM | CLONE_THREAD, data);
+
+	return 0;
+}
 #if 0
 void ExecuteUmsThread(struct ums_scheduler* scheduler,
                       struct ums_worker* new_worker)
@@ -165,6 +226,19 @@ static int __reg_thread(void *sched_thread)
 
 	if (res)
 		return res;
+	/* not reached */
+	return 0;
+}
+
+static int __reg_compelem(void *idxs)
+{
+	int res, fd, id;
+
+	res = create_ums_compelem(fd, id);
+
+	if (res)
+		return res;
+
 	/* not reached */
 	return 0;
 }
