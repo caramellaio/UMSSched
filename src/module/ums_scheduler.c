@@ -27,8 +27,10 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
 	struct ums_scheduler* ums_sched = NULL;
 
-	 if (! ums_complist_exists(comp_list_id))
+	if (! ums_complist_exists(comp_list_id)) {
+		printk("Error in %s: complist %d does not exist", __func__, comp_list_id);
 		return -1;
+	}
 	//	return ERROR_MISSING_COMPLIST;
 
 	*identifier = atomic_inc_return(&ums_sched_counter);
