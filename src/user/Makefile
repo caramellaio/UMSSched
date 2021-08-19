@@ -1,6 +1,6 @@
 all:
-	gcc -c ums_api.c 
-	gcc -o ums_hello ums_api.o main.c -lpthread
+	gcc -c ums_api.c -g
+	gcc -o ums_hello ums_api.o main.c -g
 
 clean:
 	rm *.o
