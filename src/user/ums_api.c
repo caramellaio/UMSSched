@@ -14,6 +14,11 @@
 #define create_ums_complist(fd, id) ioctl(fd, UMS_REQUEST_NEW_COMPLETION_LIST, id)
 #define create_ums_compelem(fd, id) ioctl(fd, UMS_REQUEST_REGISTER_COMPLETION_ELEM, id)
 
+#define create_thread(function, stack, args)				\
+	clone(&function, stack + TASK_STACK_SIZE,			\
+	      CLONE_VM | CLONE_THREAD | CLONE_SIGHAND | CLONE_FS |	\
+	      CLONE_FILES, args);
+
 static void* do_gen_ums_sched(void *args);
 /* TODO: Move to header */
 
@@ -59,6 +64,7 @@ int EnterUmsSchedulingMode(ums_function entry_point,
 
 	if (err) {
 		fprintf(stderr, "Error: cannot create User Mode Scheduler thread!\n");
+		return err;
 	}
 
 	*result = buff;
@@ -67,6 +73,7 @@ int EnterUmsSchedulingMode(ums_function entry_point,
 	sched_ep.id = *result;
 	sched_ep.entry_point = entry_point;
 
+	/* TODO: add a way to get the result */
 	register_entry_point(sched_ep);
 
 	register_threads(fd, *result);
@@ -105,11 +112,16 @@ int CreateUmsCompletionList(ums_complist_id *id,
 	data[1] = *id;
 
 	for (i = 0; i < list_count; i++) {
+		int thread_id = 0;
 		void *stack = malloc(TASK_STACK_SIZE);
 		
-		clone(__reg_compelem, stack + TASK_STACK_SIZE, 
-		      CLONE_VM | CLONE_THREAD, data);
+		thread_id = create_thread(__reg_compelem, stack, data);
 		      
+		if (thread_id < 0) {
+			fprintf(stderr, "Error: clone failed!\n");
+			return -1;
+		}
+		fprintf(stderr, "New thread %d created\n", thread_id);
 	}
 
 	return 0;
@@ -129,8 +141,7 @@ int CreateUmsCompletionElement(ums_complist_id id,
 
 	stack = malloc(TASK_STACK_SIZE);
 
-	clone(__reg_compelem, stack + TASK_STACK_SIZE,
-	      CLONE_VM | CLONE_THREAD, data);
+	create_thread(__reg_compelem, stack, data);
 
 	return 0;
 }
@@ -169,8 +180,7 @@ static void register_entry_point(struct sched_entry_point sched_ep)
 
 	stack = malloc(TASK_STACK_SIZE);
 
-	thread_pid = clone(__entry_point, stack + TASK_STACK_SIZE, 
-			   CLONE_VM | CLONE_THREAD, &sched_ep);
+	thread_pid = create_thread(__entry_point, stack, &sched_ep);
 }
 
 static void register_threads(int fd,
@@ -188,8 +198,7 @@ static void register_threads(int fd,
 		void *stack = malloc(TASK_STACK_SIZE);
 
 		thread_info.cpu = i;
-		clone(__reg_thread, stack + TASK_STACK_SIZE,
-		      CLONE_VM | CLONE_THREAD, &thread_info);	
+		create_thread(__reg_thread, stack, &thread_info);	
 	}
 }
 
@@ -236,12 +245,21 @@ static int __reg_thread(void *sched_thread)
 static int __reg_compelem(void *idxs)
 {
 	int res, fd, id;
+	int *data;
 
-	res = create_ums_compelem(fd, id);
+	data = (int*)idxs;
 
-	if (res)
-		return res;
+	fd = data[0];
+	id = data[1];
+
+	res = create_ums_compelem(fd, &id);
+
+	if (res) {
+		fprintf(stderr, "Error creating new compelem!\n");
+	}
+
+	id = *data;
 
 	/* not reached */
-	return 0;
+	return res;
 }

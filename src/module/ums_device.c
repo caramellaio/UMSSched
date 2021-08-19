@@ -167,7 +167,11 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	{
 		int err;
 
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_sched_register_entry_point...\n");
 		err = ums_sched_register_entry_point((int)data);
+
+		if (err)
+			return FAILURE;
 	}
 	break;
 #if 0
@@ -227,17 +231,27 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	{
 		int err = 0;
 		int result = 0;
+		int *in_buf;
 
-		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_compelem_add\n...");
 
-		err = ums_compelem_add(&result, (int)data);
+		in_buf = kmalloc(sizeof(int), GFP_KERNEL);
 
-		if (err)
+		if (copy_from_user(in_buf, (void*)data, sizeof(int)))
 			return FAILURE;
+
+
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_compelem_add...\n");
+		err = ums_compelem_add(&result, *in_buf);
+
+		kfree(in_buf);
+		if (err) {
+			printk(KERN_ERR MODULE_NAME_LOG "ums_compelem_add failed!\n");
+			return FAILURE;
+		}
 
 		printk(KERN_INFO MODULE_NAME_LOG "ums completion elem entry %d created.\n", result);
 
-		if (copy_to_user(&data, &result, sizeof(int)))
+		if (copy_to_user((void*)data, &result, sizeof(int)))
 			return FAILURE;
 	}
 	break;

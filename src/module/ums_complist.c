@@ -100,8 +100,10 @@ int ums_compelem_add(ums_compelem_id* result,
 
 	get_from_complist_id(list_id, &complist);
 
-	if (! complist)
+	if (! complist) {
+		printk(KERN_DEBUG "Complist %d not found!\n", list_id);
 		return -1;
+	}
 
 	compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
 
