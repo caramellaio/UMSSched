@@ -2,7 +2,9 @@
 #include <linux/slab.h>
 #include <linux/percpu.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <linux/hashtable.h>
+#include <linux/list.h>
 
 struct ums_scheduler {
 	ums_sched_id			id;
@@ -25,6 +27,8 @@ static atomic_t ums_sched_counter = ATOMIC_INIT(0);
 static void init_ums_scheduler(struct ums_scheduler* sched, 
 			       ums_sched_id id,
 			       ums_complist_id comp_id);
+
+static void deinit_ums_scheduler(struct ums_scheduler* sched);
 
 static void get_sched_by_id(ums_sched_id id, 
 			    struct ums_scheduler** sched);
@@ -121,6 +125,22 @@ int ums_sched_wait(ums_sched_id sched_id)
 	return 0;
 }
 
+int ums_sched_remove(ums_sched_id id)
+{
+	struct ums_scheduler *sched;
+
+	get_sched_by_id(id, &sched);
+
+	if (! sched)
+		return -1;
+
+	deinit_ums_scheduler(sched);
+
+	kfree(sched);
+	
+	return 0;
+}
+
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);
@@ -154,6 +174,41 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	sched->entry_point = NULL;
 
 	INIT_LIST_HEAD(&sched->wait_procs);
+}
+
+static void deinit_ums_scheduler(struct ums_scheduler* sched)
+{
+	struct list_head *list_iter;
+	struct list_head *safe_temp;
+	int cpu;
+
+	sched->id = -1;
+	sched->comp_id = -1;
+
+	hash_del(&sched->list);
+
+	/* kill all the workers */
+	for_each_possible_cpu(cpu) {
+		struct task_struct *worker = *per_cpu_ptr(sched->workers, cpu);
+
+		/* TODO: not sure about the privilege */
+		send_sig(SIGKILL, worker, 0);
+	}
+
+	free_percpu(sched->workers);
+
+	list_for_each_safe(list_iter, safe_temp, &sched->wait_procs) {
+		struct ums_sched_wait *wait;
+
+		wait = list_entry(list_iter, struct ums_sched_wait, list);
+
+		/* TODO: wakeup_process o wakepu_state? */
+		wake_up_process(wait->task);
+
+		list_del(&wait->list);
+
+		kfree(wait);
+	}
 }
 
 static void get_sched_by_id(ums_sched_id id, 
