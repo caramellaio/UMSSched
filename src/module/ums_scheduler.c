@@ -3,9 +3,13 @@
 #include <linux/percpu.h>
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
+#include <linux/sched/task_stack.h>
 #include <linux/hashtable.h>
 #include <linux/list.h>
+#include <linux/ptrace.h>
+#include <asm/processor.h>
 
+#define get_worker(sched) (*get_cpu_ptr(sched->workers))
 struct ums_sched_worker {
 	struct task_struct *worker;
 	ums_compelem_id current_elem;
@@ -36,8 +40,14 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 
 static void deinit_ums_scheduler(struct ums_scheduler* sched);
 
+static void sched_switch(struct ums_sched_worker *worker,
+			 struct task_struct *new_task,
+			 ums_compelem_id new_compelem);
+
 static void get_sched_by_id(ums_sched_id id, 
 			    struct ums_scheduler** sched);
+
+static void _check_caller(struct ums_sched_worker *worker);
 
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
@@ -146,6 +156,26 @@ int ums_sched_remove(ums_sched_id id)
 	return 0;
 }
 
+int ums_sched_yield(ums_sched_id id)
+{
+	struct ums_scheduler *sched;
+	struct ums_sched_worker *worker;
+	struct task_struct *new_task;
+
+
+	get_sched_by_id(id, &sched);
+
+	if (! sched)
+		return -1;
+
+	new_task = sched->entry_point;
+
+	worker = get_worker(sched);
+
+	sched_switch(worker, new_task, 0);
+	return 0;
+}
+
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);
@@ -226,4 +256,30 @@ static void get_sched_by_id(ums_sched_id id,
 	hash_for_each_possible(ums_sched_hash, *sched, list, id) {
 		if ((*sched)->id == id) break;
 	}
+}
+
+static void sched_switch(struct ums_sched_worker *worker,
+			 struct task_struct *new_task,
+			 ums_compelem_id new_compelem)
+{
+	struct pt_regs *current_regs, *target_regs;
+	_check_caller(worker);
+
+	current_regs = current_pt_regs();
+	target_regs = task_pt_regs(new_task);
+
+	/* store current pt_regs in its  */
+	/* current elem = 0 means we are running `entry_point` */
+	if (worker->current_elem) {
+		ums_compelem_store_reg(worker->current_elem);
+	}
+
+	worker->current_elem = new_compelem;
+	/* TODO: notify complist! */
+	*current_regs = *target_regs;
+}
+
+static void _check_caller(struct ums_sched_worker *worker)
+{
+
 }

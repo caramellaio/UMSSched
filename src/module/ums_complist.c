@@ -2,6 +2,9 @@
 #include <linux/kfifo.h>
 #include <linux/hashtable.h>
 #include <linux/slab.h>
+#include <linux/ptrace.h>
+#include <linux/sched/task_stack.h>
+#include <asm/processor.h>
 
 struct ums_complist {
 	ums_complist_id id;
@@ -148,6 +151,20 @@ int ums_complist_exists(ums_complist_id comp_id)
 	get_from_complist_id(comp_id, &complist);
 
 	return NULL != complist;
+}
+
+int ums_compelem_store_reg(ums_compelem_id compelem_id)
+{
+	struct ums_compelem *compelem = NULL;
+
+	get_from_compelem_id(compelem_id, &compelem);
+
+	if (! compelem)
+		return -1;
+
+	*task_pt_regs(compelem->elem_task) = *current_pt_regs();
+
+	return 0;
 }
 
 static int new_complist(ums_complist_id comp_id,

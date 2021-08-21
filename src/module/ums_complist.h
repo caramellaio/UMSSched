@@ -16,5 +16,7 @@ int ums_compelem_add(ums_compelem_id* result,
 
 int ums_compelem_remove(ums_compelem_id id);
 
+int ums_compelem_store_reg(ums_compelem_id compelem_id);
+
 int ums_complist_init(void);
 #endif /* __UMS_COMPLIST_H__ */
