@@ -6,14 +6,20 @@
 #include <linux/hashtable.h>
 #include <linux/list.h>
 
-struct ums_scheduler {
-	ums_sched_id			id;
-	ums_complist_id			comp_id;
-	struct hlist_node		list;
-	struct task_struct __percpu  	**workers;
-	struct task_struct		*entry_point;
-	struct list_head		wait_procs;
+struct ums_sched_worker {
+	struct task_struct *worker;
+	ums_compelem_id current_elem;
 };
+
+struct ums_scheduler {
+	ums_sched_id				id;
+	ums_complist_id				comp_id;
+	struct hlist_node			list;
+	struct ums_sched_worker __percpu	**workers;
+	struct task_struct			*entry_point;
+	struct list_head			wait_procs;
+};
+
 
 struct ums_sched_wait {
 	struct task_struct *task;
@@ -55,7 +61,7 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 int ums_sched_register_sched_thread(ums_sched_id sched_id)
 {
 	int res = 0;
-	struct task_struct *worker = NULL;
+	struct ums_sched_worker *worker = NULL;
 	struct ums_scheduler* sched;
 
        	get_sched_by_id(sched_id, &sched);
@@ -68,14 +74,13 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 	worker = *get_cpu_ptr(sched->workers);
 
 	/* Error: already registered */
-	if (worker) {
+	if (worker->worker) {
 		res = -2; 
 		goto register_thread_exit;
 	}
 
 	/* set cpu var to current. */
-	*get_cpu_ptr(sched->workers) = current;
-
+	worker->worker = current;
 
 	put_cpu_var(sched->workers);
 
@@ -164,11 +169,11 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	/* entries are unique, no need for locks */
 	hash_add(ums_sched_hash, &sched->list, sched->id);
 
-	sched->workers = alloc_percpu(struct task_struct*);
+	sched->workers = alloc_percpu(struct ums_sched_worker*);
 
 	/* Init as NULL */
 	for_each_possible_cpu(cpu) {
-		*per_cpu_ptr(sched->workers, cpu) = NULL;
+		(*per_cpu_ptr(sched->workers, cpu))->worker = NULL;
 	}
 
 	sched->entry_point = NULL;
@@ -189,10 +194,12 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 
 	/* kill all the workers */
 	for_each_possible_cpu(cpu) {
-		struct task_struct *worker = *per_cpu_ptr(sched->workers, cpu);
+		struct ums_sched_worker *worker = *per_cpu_ptr(sched->workers, cpu);
 
-		/* TODO: not sure about the privilege */
-		send_sig(SIGKILL, worker, 0);
+		/* TODO: handle signals to safely die */
+		send_sig(SIGKILL, worker->worker, 0);
+
+		// TODO: set completion element status as `free`
 	}
 
 	free_percpu(sched->workers);
