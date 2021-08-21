@@ -18,8 +18,9 @@
 #define enter_ums_sched(id)      ioctl(global_fd, UMS_REQUEST_ENTER_UMS_SCHEDULING, id)
 #define wait_ums_sched(id)       ioctl(global_fd, UMS_REQUEST_WAIT_UMS_SCHEDULER, id)
 #define thread_yield(id)         ioctl(global_fd, UMS_REQUEST_YIELD, id)
-#define do_reg_entry_point(id) ioctl(global_fd, UMS_REQUEST_REGISTER_ENTRY_POINT, id)
-#define do_reg_thread(id)      ioctl(global_fd, UMS_REQUEST_REGISTER_SCHEDULER_THREAD, id)
+#define exec_thread(id)          ioctl(global_fd, UMS_REQUEST_EXEC, id)
+#define do_reg_entry_point(id)   ioctl(global_fd, UMS_REQUEST_REGISTER_ENTRY_POINT, id)
+#define do_reg_thread(id)        ioctl(global_fd, UMS_REQUEST_REGISTER_SCHEDULER_THREAD, id)
 
 #define create_thread(function, stack, args)				\
 	clone(&function, stack + TASK_STACK_SIZE,			\
@@ -188,20 +189,34 @@ int CreateUmsCompletionElement(ums_complist_id id,
 
 	return 0;
 }
+
+int ExecuteUmsThread(ums_sched_id sched_id,
+                      ums_compelem_id next)
+{
+	int buff[2];
+
+	OPEN_GLOBAL_FD();
+
+	buff[0] = sched_id;
+	buff[1] = next;
+
+	exec_thread(buff);
+
+	/* We will eventually return! */
+	return 0;
+}
+
+int UmsThreadYield(ums_sched_id sched_id)
+{
+	OPEN_GLOBAL_FD();
+	thread_yield(sched_id);
+
+	/* We will eventually return! */
+	return 0;
+}
+
+
 #if 0
-void ExecuteUmsThread(struct ums_scheduler* scheduler,
-                      struct ums_worker* new_worker)
-{
-  return;
-}
-
-void UmSThreadYield(struct ums_scheduler* scheduler,
-                    struct ums_worker* act_worker)
-{
-  return;
-}
-
-
 struct ums_worker* DequeueUmsCompletionListItems(struct ums_scheduler* scheduler)
 {
   return NULL;
@@ -273,7 +288,6 @@ static int __entry_point(void *idx)
 	free(sched_ep);
 
 	res = do_reg_entry_point(&id);
-
 
 	if (res) {
 		fprintf(stderr, "Error in register_entry_point: %d\n", res);
