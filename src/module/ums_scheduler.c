@@ -81,7 +81,9 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 		goto register_thread_exit;
 	}
 
-	worker = *get_cpu_ptr(sched->workers);
+
+	worker = get_worker(sched);
+
 
 	/* Error: already registered */
 	if (worker->worker) {
@@ -94,6 +96,13 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 
 	put_cpu_var(sched->workers);
 
+	/* TODO: this is temporary, a proper sync mechanism will be implemented */
+	if (!sched->entry_point) {
+		res = -3;
+		goto register_thread_exit;
+	}
+
+	sched_switch(worker, sched->entry_point, 0);
 register_thread_exit:
 	return res;
 }
@@ -104,6 +113,7 @@ int ums_sched_register_entry_point(ums_sched_id sched_id)
 
 	get_sched_by_id(sched_id, &sched);
 
+	printk(KERN_DEBUG "sched_id=%d, sched=%p", sched_id, sched);
 	if (!sched)
 		return -1;
 
@@ -269,6 +279,8 @@ static void sched_switch(struct ums_sched_worker *worker,
 	struct pt_regs *current_regs, *target_regs;
 	_check_caller(worker);
 
+	printk(KERN_DEBUG "Entering %s", __func__);
+
 	current_regs = current_pt_regs();
 	target_regs = task_pt_regs(new_task);
 
@@ -281,6 +293,8 @@ static void sched_switch(struct ums_sched_worker *worker,
 	worker->current_elem = new_compelem;
 	/* TODO: notify complist! */
 	*current_regs = *target_regs;
+
+	printk(KERN_DEBUG "Exit %s", __func__);
 }
 
 static void _check_caller(struct ums_sched_worker *worker)
