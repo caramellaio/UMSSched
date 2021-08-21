@@ -11,6 +11,8 @@ int EnterUmsSchedulingMode(ums_function entry_point,
 
 int WaitUmsScheduler(ums_sched_id sched_id);
 
+int WaitUmsChildren(void);
+
 int CreateEmptyUmsCompletionList(ums_complist_id *id);
 
 int CreateUmsCompletionList(ums_complist_id *id,

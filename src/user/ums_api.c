@@ -8,7 +8,9 @@
 #include <unistd.h>
 #include <sched.h>
 #include <sys/sysinfo.h>
+#include <sys/wait.h>
 #include <fcntl.h>
+#include "ll/list.h"
 
 #define TASK_STACK_SIZE 65536
 #define create_ums_complist(fd, id) ioctl(fd, UMS_REQUEST_NEW_COMPLETION_LIST, id)
@@ -17,7 +19,9 @@
 #define create_thread(function, stack, args)				\
 	clone(&function, stack + TASK_STACK_SIZE,			\
 	      CLONE_VM | CLONE_THREAD | CLONE_SIGHAND | CLONE_FS |	\
-	      CLONE_FILES, args);
+	      CLONE_FILES | SIGCHLD, args);
+
+static LIST_HEAD(thread_id_list);
 
 static void* do_gen_ums_sched(void *args);
 /* TODO: Move to header */
@@ -34,6 +38,12 @@ struct sched_thread {
 	int	     cpu;
 };
 
+
+struct id_elem {
+	int thread_id;
+	struct list_head list;
+};
+
 static void register_entry_point(struct sched_entry_point sched_ep);
 
 static void register_threads(int fd,
@@ -44,6 +54,8 @@ static int __entry_point(void *sched_ep);
 static int __reg_thread(void *sched_thread);
 
 static int __reg_compelem(void *idxs);
+
+static void new_id_elem(int thread_id);
 
 int EnterUmsSchedulingMode(ums_function entry_point,
                            ums_complist_id complist_id,
@@ -94,6 +106,28 @@ int WaitUmsScheduler(ums_sched_id sched_id)
 	return err;
 }
 
+int WaitUmsChildren(void)
+{
+	/* TODO: qui */
+	struct list_head *iter, *tmp_iter;
+
+	list_for_each_safe(iter, tmp_iter, &thread_id_list) {
+		struct id_elem *saved_id;
+		int status;
+
+		saved_id = list_entry(iter, struct id_elem, list);
+
+		fprintf(stderr, "Waiting for %d\n", saved_id->thread_id);
+
+		if (0 > waitpid(saved_id->thread_id, &status, __WCLONE))
+			fprintf(stderr, "Error: during wait!\n");
+
+		list_del(&saved_id->list);
+	}
+
+	return 0;
+}
+
 int CreateEmptyUmsCompletionList(ums_complist_id *id)
 {
 	int fd, err;
@@ -133,6 +167,9 @@ int CreateUmsCompletionList(ums_complist_id *id,
 			return -1;
 		}
 		fprintf(stderr, "New thread %d created\n", thread_id);
+
+		new_id_elem(thread_id);
+
 	}
 
 	return 0;
@@ -144,6 +181,7 @@ int CreateUmsCompletionElement(ums_complist_id id,
 	int fd;
 	int data[2];
 	void *stack;
+	int thread_id;
 
 	fd = open("/dev/usermodscheddev", 0);
 
@@ -152,7 +190,12 @@ int CreateUmsCompletionElement(ums_complist_id id,
 
 	stack = malloc(TASK_STACK_SIZE);
 
-	create_thread(__reg_compelem, stack, data);
+	thread_id = create_thread(__reg_compelem, stack, data);
+
+	if (thread_id < 0)
+		return -1;
+
+	new_id_elem(thread_id);
 
 	return 0;
 }
@@ -186,16 +229,18 @@ static void* do_gen_ums_sched(void *args)
 
 static void register_entry_point(struct sched_entry_point sched_ep)
 {
-	int thread_pid;
+	int thread_id;
 	void *stack;
 
 	stack = malloc(TASK_STACK_SIZE);
 
-	thread_pid = create_thread(__entry_point, stack, &sched_ep);
+	thread_id = create_thread(__entry_point, stack, &sched_ep);
 
-	if (thread_pid < 0) {
+	if (thread_id < 0) {
 		fprintf(stderr, "Fail creating thread in %s: internal error\n", __func__);
 	}
+
+	new_id_elem(thread_id);
 }
 
 static void register_threads(int fd,
@@ -210,10 +255,18 @@ static void register_threads(int fd,
 	thread_info.id = sched_id;
 
 	for (i = 0; i < n_cpu; i++) {
+		int thread_id;
 		void *stack = malloc(TASK_STACK_SIZE);
 
 		thread_info.cpu = i;
-		create_thread(__reg_thread, stack, &thread_info);	
+		thread_id = create_thread(__reg_thread, stack, &thread_info);	
+
+		if (thread_id < 0) {
+			fprintf(stderr, "Thread registration for CPU %d failed!", i);
+			continue;
+		}
+
+		new_id_elem(thread_id);
 	}
 }
 
@@ -283,4 +336,15 @@ static int __reg_compelem(void *idxs)
 
 	/* not reached */
 	return res;
+}
+
+static void new_id_elem(int thread_id)
+{
+	struct id_elem* elem;
+
+	elem = (struct id_elem*) malloc(sizeof(struct id_elem));
+
+	elem->thread_id = thread_id;
+
+	list_add(&elem->list, &thread_id_list);
 }

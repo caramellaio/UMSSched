@@ -30,6 +30,8 @@ int main(void) {
 	
 	EnterUmsSchedulingMode(entry_point, complist_id, &sched_id);
 
+	WaitUmsChildren();
+
 	return err;
 }
 
