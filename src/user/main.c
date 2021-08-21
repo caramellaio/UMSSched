@@ -32,6 +32,7 @@ int main(void) {
 
 	WaitUmsChildren();
 
+	getchar();
 	return err;
 }
 
