@@ -222,16 +222,16 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		}
 	}
 	break;
-#if 0
+
 	case UMS_REQUEST_YIELD:
 	{
-		struct task_struct* curr = current;
-		struct pt_regs* regs = current_pt_regs();
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling yield\n");
 
-		ums_sched_yield()
+		if (ums_sched_yield((ums_sched_id)data)) {
+			printk(KERN_ERR MODULE_NAME_LOG "yield failed!\n");
+		}
 	}
 	break;
-#endif
 
 	case UMS_REQUEST_NEW_COMPLETION_LIST:
 	{
