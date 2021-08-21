@@ -186,6 +186,30 @@ int ums_sched_yield(ums_sched_id id)
 	return 0;
 }
 
+int ums_sched_exec(ums_sched_id id,
+		   ums_compelem_id elem_id)
+{
+	struct ums_scheduler *sched;
+	struct ums_sched_worker *worker;
+	int res = 0;
+	
+	get_sched_by_id(id, &sched);
+
+	if (! sched)
+		return -1;
+
+	/* TODO: assert worker == current */
+	worker = get_worker(sched);
+	/* TODO: assert worker->elem_id = 0 */
+
+	/* mark as the runner */
+	worker->current_elem = elem_id;
+
+	res = ums_compelem_exec(elem_id);
+
+	return res;
+}
+
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);

@@ -223,6 +223,24 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	}
 	break;
 
+	case UMS_REQUEST_EXEC:
+	{
+		int in_buf[2];
+		int err = 0;
+
+		if (copy_from_user(in_buf, (void*)data, sizeof(int)*2))
+			return FAILURE;
+
+		printk(KERN_DEBUG MODULE_NAME_LOG "Calling exec\n");
+		
+
+		err = ums_sched_exec(in_buf[0], in_buf[1]);
+
+		if (err)
+			return FAILURE;
+	}
+	break;
+
 	case UMS_REQUEST_YIELD:
 	{
 		printk(KERN_DEBUG MODULE_NAME_LOG "Calling yield\n");

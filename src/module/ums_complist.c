@@ -164,6 +164,24 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 
 	*task_pt_regs(compelem->elem_task) = *current_pt_regs();
 
+	// set_compelem_ready(compelem);
+
+	return 0;
+}
+
+int ums_compelem_exec(ums_compelem_id compelem_id)
+{
+	struct ums_compelem *compelem = NULL;
+
+	get_from_compelem_id(compelem_id, &compelem);
+
+	if (! compelem)
+		return -1;
+
+	*current_pt_regs() = *task_pt_regs(compelem->elem_task);
+
+	// set_compelem_running(compelem);
+
 	return 0;
 }
 
