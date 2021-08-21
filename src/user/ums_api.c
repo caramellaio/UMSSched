@@ -224,6 +224,8 @@ static void register_entry_point(ums_sched_id id,
 	void *stack = malloc(TASK_STACK_SIZE);
 	struct sched_entry_point *sched_ep = malloc(sizeof(struct sched_entry_point));
 
+	sched_ep->id = id;
+	sched_ep->entry_point = entry_func;
 
 	thread_id = create_thread(__entry_point, stack, sched_ep);
 
