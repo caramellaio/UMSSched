@@ -203,7 +203,11 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 
 	/* Init as NULL */
 	for_each_possible_cpu(cpu) {
-		(*per_cpu_ptr(sched->workers, cpu))->worker = NULL;
+		struct ums_sched_worker *worker;
+		worker = kmalloc(sizeof(struct ums_sched_worker), GFP_KERNEL);
+
+		worker->worker = NULL;
+		(*per_cpu_ptr(sched->workers, cpu)) = worker;
 	}
 
 	sched->entry_point = NULL;
