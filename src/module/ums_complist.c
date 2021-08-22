@@ -44,8 +44,12 @@ static void get_from_compelem_id(ums_compelem_id id,
 static void get_from_complist_id(ums_complist_id id,
 				struct ums_complist** complist);
 
-static void complist_register_compelem(struct ums_complist *complist,
-				       struct ums_compelem *compelem);
+static void register_compelem(struct ums_complist *complist,
+			      struct ums_compelem *compelem);
+
+static void reserve_compelem(struct ums_complist *complist,
+			     struct ums_compelem **compelem,
+			     int do_sleep);
 
 int ums_complist_add(ums_complist_id *result)
 {
@@ -118,7 +122,8 @@ int ums_compelem_add(ums_compelem_id* result,
 
 	res = new_compelement(*result, list_id, compelem);
 
-	complist_register_compelem(complist, compelem);
+	register_compelem(complist, compelem);
+
 	return res;
 }
 
@@ -159,6 +164,7 @@ int ums_complist_exists(ums_complist_id comp_id)
 int ums_compelem_store_reg(ums_compelem_id compelem_id)
 {
 	struct ums_compelem *compelem = NULL;
+	struct ums_complist *complist = NULL;
 
 	get_from_compelem_id(compelem_id, &compelem);
 
@@ -167,7 +173,14 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 
 	*task_pt_regs(compelem->elem_task) = *current_pt_regs();
 
-	// set_compelem_ready(compelem);
+	get_from_complist_id(compelem->list_id, &complist);
+
+	if (unlikely(!complist)) {
+		printk(KERN_ERR "compelem data structure contains non existing complist!\n");
+		return -2;
+	}
+
+	register_compelem(complist, compelem);
 
 	return 0;
 }
@@ -183,8 +196,7 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 
 	*current_pt_regs() = *task_pt_regs(compelem->elem_task);
 
-	// set_compelem_running(compelem);
-
+	/* exec is called from already reserved compelems */
 	return 0;
 }
 
@@ -255,8 +267,33 @@ static void get_from_compelem_id(ums_compelem_id id,
 	}
 }
 
-static void complist_register_compelem(struct ums_complist *complist,
-				       struct ums_compelem *compelem)
+/* TODO: use macro instead */
+static void register_compelem(struct ums_complist *complist,
+			      struct ums_compelem *compelem)
 {
+	/* check if lock is necessary for kfifo */
 	kfifo_in(&complist->ready_queue, &compelem, sizeof(compelem));
+
+	/* TODO: check if it is necessary to block interrupts */
+	up(&complist->elem_sem);
+}
+
+static void reserve_compelem(struct ums_complist *complist,
+			     struct ums_compelem **compelem,
+			     int do_sleep)
+{
+	*compelem = NULL;
+
+	if (do_sleep) {
+		/* TODO: check down_killable */
+		down_interruptible(&complist->elem_sem);
+	}	
+	else {
+		if (down_trylock(&complist->elem_sem))
+			return;
+	}
+
+	/* TODO: use lock */
+	kfifo_out(&complist->ready_queue, compelem, 
+		  sizeof(struct ums_compelem*));
 }
