@@ -47,9 +47,9 @@ static void get_from_complist_id(ums_complist_id id,
 static void register_compelem(struct ums_complist *complist,
 			      struct ums_compelem *compelem);
 
-static void reserve_compelem(struct ums_complist *complist,
-			     struct ums_compelem **compelem,
-			     int do_sleep);
+static int reserve_compelem(struct ums_complist *complist,
+			    struct ums_compelem **compelem,
+			    int do_sleep);
 
 int ums_complist_add(ums_complist_id *result)
 {
@@ -161,6 +161,49 @@ int ums_complist_exists(ums_complist_id comp_id)
 	return NULL != complist;
 }
 
+int ums_complist_reserve(ums_complist_id comp_id,
+			 int to_reserve,
+			 ums_compelem_id *ret_array,
+			 int *size)
+{
+	int i;
+	struct ums_complist *complist;
+	struct ums_compelem *compelem_0;
+
+	*size = 0;
+
+	get_from_complist_id(comp_id, &complist);
+
+	if (! complist)
+		return -1;
+
+	if (to_reserve == 0)
+		return 0;
+
+	if (unlikely(reserve_compelem(complist, &compelem_0, 1)))
+		return -2;
+
+	if (unlikely(! compelem_0))
+		return -2;
+
+	ret_array[0] = compelem_0->id;
+
+	for (i = 1; i < to_reserve; i++) {
+		struct ums_compelem *compelem_i = NULL;
+
+		if (unlikely(reserve_compelem(complist, &compelem_i, 0)))
+			return -2;
+
+		if (! compelem_i)
+			break;
+		ret_array[i] = compelem_i->id;
+	}
+
+	*size = i;
+
+	return 0;
+}
+
 int ums_compelem_store_reg(ums_compelem_id compelem_id)
 {
 	struct ums_compelem *compelem = NULL;
@@ -185,14 +228,43 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 	return 0;
 }
 
-int ums_compelem_exec(ums_compelem_id compelem_id)
+int ums_compelem_exec(ums_compelem_id compelem_id,
+		      ums_compelem_id *reserved_list,
+		      unsigned int reserved_count)
 {
+	int i;
+	ums_complist_id list_id;
 	struct ums_compelem *compelem = NULL;
+	struct ums_complist *complist = NULL;
 
 	get_from_compelem_id(compelem_id, &compelem);
 
 	if (! compelem)
 		return -1;
+
+	list_id = compelem->list_id;
+
+	get_from_complist_id(list_id, &complist);
+
+	if (! complist)
+		return -2;
+	
+	for (i = 0; i < reserved_count; i++) {
+		struct ums_compelem *curr = NULL;
+		ums_compelem_id res_i = reserved_list[i];
+
+		get_from_compelem_id(res_i, &curr);
+
+		if (! curr)
+			return -1;
+
+		if (unlikely(curr->list_id != list_id))
+			return -2;
+
+		if (res_i != compelem_id)
+			register_compelem(complist, curr);
+	}
+
 
 	*current_pt_regs() = *task_pt_regs(compelem->elem_task);
 
@@ -278,22 +350,29 @@ static void register_compelem(struct ums_complist *complist,
 	up(&complist->elem_sem);
 }
 
-static void reserve_compelem(struct ums_complist *complist,
-			     struct ums_compelem **compelem,
-			     int do_sleep)
+static int reserve_compelem(struct ums_complist *complist,
+			    struct ums_compelem **compelem,
+			    int do_sleep)
 {
 	*compelem = NULL;
 
 	if (do_sleep) {
-		/* TODO: check down_killable */
-		down_interruptible(&complist->elem_sem);
+		int down_res = down_interruptible(&complist->elem_sem);
+
+
+		if (down_res)
+			return down_res;
 	}	
 	else {
 		if (down_trylock(&complist->elem_sem))
-			return;
+			return 0;
 	}
 
 	/* TODO: use lock */
-	kfifo_out(&complist->ready_queue, compelem, 
-		  sizeof(struct ums_compelem*));
+	/* TODO: assert result */
+	if (! kfifo_out(&complist->ready_queue, compelem, 
+			sizeof(struct ums_compelem*)))
+		return -2;
+
+	return 0;
 }

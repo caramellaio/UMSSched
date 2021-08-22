@@ -16,22 +16,18 @@
 /* TODO: Move ums requests in another file */
 #include "../shared/ums_request.h"
 
-#define MODULE_NAME_LOG "umsdev: "
 
 MODULE_LICENSE("GPL");
 
 MODULE_AUTHOR("Alberto Bombardelli");
-
-/*
- * Prototypes - this would normally go in a .h file
- */
 
 static long device_ioctl(struct file *file, unsigned int request, unsigned long data);
 
 #define SUCCESS 0
 #define FAILURE -1
 #define DEVICE_NAME "usermodscheddev"
-#define BUF_LEN 80
+#define MODULE_NAME_LOG "umsdev: "
+#define DEQUEUE_ELEM_MAX 512
 
 /*
  * Global variables are declared as static, so are global within the file.
@@ -337,9 +333,53 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	}
 	break;
 
+	case UMS_REQUEST_DEQUEUE_COMPLETION_LIST:
+	{
+		int err = 0;
+		int in_buf[2];
+		int num_elems, ret_size;
+		ums_complist_id comp_id, *ret_array;
+
+		if (copy_from_user(in_buf, (void*)data, sizeof(int)*2))
+			goto ums_dequeue_fail;
+
+		comp_id = in_buf[0];
+		num_elems = in_buf[1];
+
+		if (num_elems < 0 || num_elems > DEQUEUE_ELEM_MAX)
+			goto ums_dequeue_fail;
+		
+		ret_array = kmalloc(sizeof(int) * (num_elems + 1), GFP_KERNEL);
+		err = ums_complist_reserve(comp_id, num_elems,
+					   ret_array+1, &ret_size);
+
+		*ret_array = ret_size;
+
+		if (err)
+			goto ums_dequeue_fail;
+
+		if (copy_to_user((void*) data, ret_array,
+			         sizeof(int)*(ret_size+1))) {
+			goto ums_dequeue_fail;
+		}
+
+		/* break means success in this case */
+		goto ums_dequeue_end;
+
+ums_dequeue_fail:
+		err = FAILURE;
+
+ums_dequeue_end:
+		if (ret_array)
+			kfree(ret_array);
+
+		if (err)
+			return FAILURE;
+	}
+	break;
+
 	default: return FAILURE;
 	}
 
 	return SUCCESS;
 }
-

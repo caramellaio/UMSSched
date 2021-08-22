@@ -11,6 +11,11 @@ int ums_complist_remove(ums_complist_id id);
 
 int ums_complist_exists(ums_complist_id comp_id);
 
+int ums_complist_reserve(ums_complist_id comp_id,
+			 int to_reserve,
+			 ums_compelem_id *ret_array,
+			 int *size);
+
 int ums_compelem_add(ums_compelem_id* result,
 		     ums_complist_id list_id);
 
