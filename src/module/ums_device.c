@@ -351,8 +351,9 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		
 		ret_array = kmalloc(sizeof(int) * (num_elems + 1), GFP_KERNEL);
 		err = ums_complist_reserve(comp_id, num_elems,
-					   ret_array+1, &ret_size);
+					   ret_array, &ret_size);
 
+		*(ret_array + ret_size) = *ret_array;
 		*ret_array = ret_size;
 
 		if (err)

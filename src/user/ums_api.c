@@ -21,6 +21,7 @@
 #define exec_thread(id)          ioctl(global_fd, UMS_REQUEST_EXEC, id)
 #define do_reg_entry_point(id)   ioctl(global_fd, UMS_REQUEST_REGISTER_ENTRY_POINT, id)
 #define do_reg_thread(id)        ioctl(global_fd, UMS_REQUEST_REGISTER_SCHEDULER_THREAD, id)
+#define dequeue_complist(id)	 ioctl(global_fd, UMS_REQUEST_DEQUEUE_COMPLETION_LIST, id)
 
 #define create_thread(function, stack, args)				\
 	clone(&function, stack + TASK_STACK_SIZE,			\
@@ -216,20 +217,31 @@ int UmsThreadYield(ums_sched_id sched_id)
 }
 
 
-#if 0
-struct ums_worker* DequeueUmsCompletionListItems(struct ums_scheduler* scheduler)
+int DequeueUmsCompletionListItems(ums_sched_id scheduler,
+				  int max_elements,
+				  ums_compelem_id *result_array,
+				  int *result_length)
 {
-  return NULL;
+	int res;
+
+	OPEN_GLOBAL_FD();
+
+	res = dequeue_complist(result_array);
+
+	if (res)
+		return res;
+
+	*result_length = *result_array;
+
+	*result_array = *(result_array + *result_length);
+
+	/* zero terminate the list */
+	/* 0 is ok because idx are always > 0 */
+	*(result_array + *result_length) = 0;
+
+	return 0;
 }
 
-static void* do_gen_ums_sched(void *args)
-{
-  printf("Executing function: %s\n", __func__);
-
-  return 0;
-}
-
-#endif
 
 static void register_entry_point(ums_sched_id id,
 				 ums_function entry_func)
