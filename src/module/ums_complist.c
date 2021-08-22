@@ -11,6 +11,7 @@ struct ums_complist {
 	struct hlist_node list;
 	struct kfifo busy_queue;
 	struct kfifo ready_queue;
+	struct semaphore elem_sem;
 };
 
 struct ums_compelem {
@@ -89,6 +90,8 @@ int ums_complist_remove(ums_complist_id id)
 
 	kfifo_free(&complist->busy_queue);
 	kfifo_free(&complist->ready_queue);
+
+	/* TODO: sema_free? */
 	return 0;
 }
 
@@ -206,6 +209,9 @@ static int new_complist(ums_complist_id comp_id,
 		kfifo_free(&complist->busy_queue);
 		goto new_complist_exit;
 	}
+
+	sema_init(&complist->elem_sem, 0);
+
 	hash_add(ums_complist_hash, &complist->list, complist->id);
 
 new_complist_exit:
