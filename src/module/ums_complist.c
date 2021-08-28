@@ -9,7 +9,6 @@
 struct ums_complist {
 	ums_complist_id id;
 	struct hlist_node list;
-	struct kfifo busy_queue;
 	struct kfifo ready_queue;
 	struct semaphore elem_sem;
 };
@@ -19,11 +18,9 @@ struct ums_compelem {
 	ums_complist_id list_id;
 	struct hlist_node list;
 	
-	/* list<ums_complist_id> */
 
 	struct task_struct* elem_task;
 };
-
 
 static DEFINE_HASHTABLE(ums_complist_hash, UMS_COMPLIST_HASH_BITS);
 static DEFINE_HASHTABLE(ums_compelem_hash, UMS_COMPELEM_HASH_BITS);
@@ -89,13 +86,9 @@ int ums_complist_remove(ums_complist_id id)
 	while (kfifo_out(&complist->ready_queue, &compelem_id, sizeof(compelem_id)))
 		ums_compelem_remove(compelem_id);
 
-	while (kfifo_out(&complist->busy_queue, &compelem_id, sizeof(compelem_id)))
-		ums_compelem_remove(compelem_id);
-
-	kfifo_free(&complist->busy_queue);
 	kfifo_free(&complist->ready_queue);
 
-	/* TODO: sema_free? */
+	/* TODO: remove using a linked list of all the elements! */
 	return 0;
 }
 
@@ -289,18 +282,11 @@ static int new_complist(ums_complist_id comp_id,
 
 	printk("calling: %s", __func__);
 	complist->id = comp_id;
-	res = kfifo_alloc(&complist->busy_queue, PAGE_SIZE, GFP_KERNEL);
 
-	printk("busy alloced!");
-
-	if (res)
-		goto new_complist_exit;
 
 	res = kfifo_alloc(&complist->ready_queue, PAGE_SIZE, GFP_KERNEL);
 
-	printk("ready alloced!");
 	if (res) {
-		kfifo_free(&complist->busy_queue);
 		goto new_complist_exit;
 	}
 
