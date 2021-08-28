@@ -23,6 +23,20 @@ int CreateUmsCompletionElement(ums_complist_id id,
 		               ums_function func);
 
 
+int ExecuteUmsThread(ums_sched_id sched_id,
+                      ums_compelem_id next);
+
+int UmsThreadYield(ums_sched_id sched_id);
+
+
+int DequeueUmsCompletionListItems(ums_sched_id scheduler,
+				  int max_elements,
+				  ums_compelem_id *result_array,
+				  int *result_length);
+
+int UnregisterCompletionElements(ums_compelem_id *elements,
+				 int elem_count);
+
 #if 0
 void ExecuteUmsThread(struct ums_scheduler* scheduler,
                       struct ums_worker* new_worker);
