@@ -1,23 +1,64 @@
 #include "ums_complist.h"
+/* only for ums_sched_id */
+#include "ums_scheduler.h"
+
 #include <linux/kfifo.h>
+#include <linux/list.h>
 #include <linux/hashtable.h>
 #include <linux/slab.h>
 #include <linux/ptrace.h>
 #include <linux/sched/task_stack.h>
 #include <asm/processor.h>
 
+#define COMPELEM_NO_HOST 0
+#define __set_reserved(elem, list)				\
+	do {							\
+		(elem)->reserve_head = list;			\
+		list_add(list, &(elem)->reserve_list);		\
+	 } while (0)
+
+#define __set_released(elem)					\
+	do {							\
+		list_del(&(elem)->reserve_list);		\
+		(elem)->reserve_head = NULL;			\
+	} while (0)
+
+#define __register_compelem(complist, compelem)			\
+	do {							\
+		/* check if lock is necessary for kfifo */	\
+		kfifo_in(&(complist)->ready_queue,		\
+			 &(compelem), sizeof(compelem));	\
+		/* TODO: check if it is necessary		\
+		 * to block interrupts */			\
+		up(&complist->elem_sem);			\
+	} while (0)
+
 struct ums_complist {
 	ums_complist_id id;
 	struct hlist_node list;
 	struct kfifo ready_queue;
+
+	/* TODO: add compelems list in the future */
+	// list_head compelems;
+
 	struct semaphore elem_sem;
 };
 
 struct ums_compelem {
 	ums_compelem_id id;
 	ums_complist_id list_id;
+	/* The scheduler that is currently hosting the execution of compelem */
+	ums_sched_id host_id;
+
 	struct hlist_node list;
 	
+	// list_head complist;
+
+	/* pointer to the header of the reservation list */
+	struct list_head *reserve_head;
+
+	/* element of the list */
+	struct list_head reserve_list;
 
 	struct task_struct* elem_task;
 };
@@ -41,11 +82,10 @@ static void get_from_compelem_id(ums_compelem_id id,
 static void get_from_complist_id(ums_complist_id id,
 				struct ums_complist** complist);
 
-static void register_compelem(struct ums_complist *complist,
-			      struct ums_compelem *compelem);
 
 static int reserve_compelem(struct ums_complist *complist,
 			    struct ums_compelem **compelem,
+			    struct list_head *reserve_head,
 			    int do_sleep);
 
 int ums_complist_add(ums_complist_id *result)
@@ -115,7 +155,7 @@ int ums_compelem_add(ums_compelem_id* result,
 
 	res = new_compelement(*result, list_id, compelem);
 
-	register_compelem(complist, compelem);
+	__register_compelem(complist, compelem);
 
 	/* block completion element */
 	set_current_state(TASK_INTERRUPTIBLE);
@@ -166,10 +206,17 @@ int ums_complist_reserve(ums_complist_id comp_id,
 	int i;
 	struct ums_complist *complist;
 	struct ums_compelem *compelem_0;
+	struct list_head *reserve_list;
 
 	*size = 0;
 
 	get_from_complist_id(comp_id, &complist);
+
+	/* reserve list is destroyed in Execute function by the choosen compelem */
+	reserve_list = kmalloc(sizeof(struct list_head), GFP_KERNEL);
+
+	if (unlikely(! reserve_list))
+		return -2;
 
 	if (! complist)
 		return -1;
@@ -177,7 +224,7 @@ int ums_complist_reserve(ums_complist_id comp_id,
 	if (to_reserve == 0)
 		return 0;
 
-	if (unlikely(reserve_compelem(complist, &compelem_0, 1)))
+	if (unlikely(reserve_compelem(complist, &compelem_0, reserve_list, 1)))
 		return -2;
 
 	if (unlikely(! compelem_0))
@@ -188,7 +235,8 @@ int ums_complist_reserve(ums_complist_id comp_id,
 	for (i = 1; i < to_reserve; i++) {
 		struct ums_compelem *compelem_i = NULL;
 
-		if (unlikely(reserve_compelem(complist, &compelem_i, 0)))
+		if (unlikely(reserve_compelem(complist, &compelem_i,
+					      reserve_list, 0)))
 			return -2;
 
 		if (! compelem_i)
@@ -219,14 +267,15 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 		return -2;
 	}
 
-	register_compelem(complist, compelem);
+	__register_compelem(complist, compelem);
 
 	return 0;
 }
 
 int ums_compelem_exec(ums_compelem_id compelem_id)
 {
-	int i;
+	struct list_head *list_iter, *temp_head;
+
 	ums_complist_id list_id;
 	struct ums_compelem *compelem = NULL;
 	struct ums_complist *complist = NULL;
@@ -248,23 +297,34 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 		return -2;
 	}
 	
-#if 0
-	for (i = 0; i < reserved_count; i++) {
-		struct ums_compelem *curr = NULL;
-		ums_compelem_id res_i = reserved_list[i];
+	printk("res_head: %p", compelem->reserve_head);
 
-		get_from_compelem_id(res_i, &curr);
+	/* completion element must be reserved */
+	if (! compelem->reserve_head)
+		return -1;
 
-		if (! curr)
-			return -1;
+	/* release the other reserved compelems */
+	list_for_each_safe(list_iter, temp_head, compelem->reserve_head) {
+		struct ums_compelem *to_release;
 
-		if (unlikely(curr->list_id != list_id))
-			return -2;
+		to_release = list_entry(list_iter, struct ums_compelem, 
+					reserve_list);
 
-		if (res_i != compelem_id)
-			register_compelem(complist, curr);
-	}
-#endif
+		if (to_release != compelem) {
+			__set_released(to_release);
+			__register_compelem(complist, to_release);
+		}
+
+	}	
+
+
+	printk("Freed stuff\n");
+
+	kfree(compelem->reserve_head);
+
+	/* Add set running macro */
+	compelem->reserve_head = NULL;
+	// compelem->
 
 	memcpy(current_pt_regs(), task_pt_regs(compelem->elem_task), sizeof(struct pt_regs));
 	printk("%s: setted pt_regs!\n", __func__);
@@ -303,10 +363,10 @@ static int new_compelement(ums_compelem_id elem_id,
 			   struct ums_compelem *comp_elem)
 {
 	comp_elem->id = elem_id;
-
 	comp_elem->elem_task = current;
-
 	comp_elem->list_id = list_id;
+	comp_elem->host_id = COMPELEM_NO_HOST;
+	comp_elem->reserve_head = NULL;
 
 	hash_add(ums_compelem_hash, &comp_elem->list, comp_elem->id);
 
@@ -335,19 +395,9 @@ static void get_from_compelem_id(ums_compelem_id id,
 	}
 }
 
-/* TODO: use macro instead */
-static void register_compelem(struct ums_complist *complist,
-			      struct ums_compelem *compelem)
-{
-	/* check if lock is necessary for kfifo */
-	kfifo_in(&complist->ready_queue, &compelem, sizeof(compelem));
-
-	/* TODO: check if it is necessary to block interrupts */
-	up(&complist->elem_sem);
-}
-
 static int reserve_compelem(struct ums_complist *complist,
 			    struct ums_compelem **compelem,
+			    struct list_head *reserve_head,
 			    int do_sleep)
 {
 	*compelem = NULL;
@@ -369,6 +419,8 @@ static int reserve_compelem(struct ums_complist *complist,
 	if (! kfifo_out(&complist->ready_queue, compelem, 
 			sizeof(struct ums_compelem*)))
 		return -2;
+
+	__set_reserved(*compelem, reserve_head);
 
 	return 0;
 }
