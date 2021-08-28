@@ -124,6 +124,10 @@ int ums_compelem_add(ums_compelem_id* result,
 
 	register_compelem(complist, compelem);
 
+	/* block completion element */
+	set_current_state(TASK_INTERRUPTIBLE);
+	schedule();
+
 	return res;
 }
 
