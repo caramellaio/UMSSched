@@ -201,6 +201,7 @@ int CreateUmsCompletionElement(ums_complist_id id,
 int ExecuteUmsThread(ums_sched_id sched_id,
                       ums_compelem_id next)
 {
+	int err;
 	int buff[2];
 
 	OPEN_GLOBAL_FD();
@@ -208,16 +209,18 @@ int ExecuteUmsThread(ums_sched_id sched_id,
 	buff[0] = sched_id;
 	buff[1] = next;
 
-	exec_thread(buff);
+	err = exec_thread(buff);
 
 	/* We will eventually return! */
-	return 0;
+	return err;
 }
 
 int UmsThreadYield(ums_sched_id sched_id)
 {
+	int err;
+
 	OPEN_GLOBAL_FD();
-	thread_yield(sched_id);
+	err = thread_yield(sched_id);
 
 	/* We will eventually return! */
 	return 0;
@@ -315,6 +318,8 @@ static int __entry_point(void *idx)
 
 	/* ums_sched module should block the process here. */
 	/* The internal function will take the identifier as a parameter */
+
+	fprintf(stderr, "I am calling entry function! Yeee\n");
 	entry_func(id);
 
 	/* not reached */
@@ -343,6 +348,8 @@ static int __reg_thread(void *sched_thread)
 
 	if (res)
 		return res;
+
+	fprintf(stderr, "%s: reached its end!\n", __func__);
 	/* not reached */
 	return 0;
 }
