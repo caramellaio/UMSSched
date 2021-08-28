@@ -316,8 +316,8 @@ static void sched_switch(struct ums_sched_worker *worker,
 
 	worker->current_elem = new_compelem;
 	/* TODO: notify complist! */
-	*current_regs = *target_regs;
 
+	memcpy(current_regs, target_regs, sizeof(struct pt_regs));
 	printk(KERN_DEBUG "Exit %s", __func__);
 }
 

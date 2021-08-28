@@ -218,8 +218,7 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 	if (! compelem)
 		return -1;
 
-	*task_pt_regs(compelem->elem_task) = *current_pt_regs();
-
+	memcpy(compelem->elem_task, current_pt_regs(), sizeof(struct pt_regs));
 	get_from_complist_id(compelem->list_id, &complist);
 
 	if (unlikely(!complist)) {
@@ -232,27 +231,31 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 	return 0;
 }
 
-int ums_compelem_exec(ums_compelem_id compelem_id,
-		      ums_compelem_id *reserved_list,
-		      unsigned int reserved_count)
+int ums_compelem_exec(ums_compelem_id compelem_id)
 {
 	int i;
 	ums_complist_id list_id;
 	struct ums_compelem *compelem = NULL;
 	struct ums_complist *complist = NULL;
 
+	printk("Entering %s", __func__);
 	get_from_compelem_id(compelem_id, &compelem);
 
-	if (! compelem)
+	if (! compelem) {
+		printk(KERN_ERR "Compelem not found");
 		return -1;
+	}
 
 	list_id = compelem->list_id;
 
 	get_from_complist_id(list_id, &complist);
 
-	if (! complist)
+	if (! complist) {
+		printk(KERN_ERR "Complist not found");
 		return -2;
+	}
 	
+#if 0
 	for (i = 0; i < reserved_count; i++) {
 		struct ums_compelem *curr = NULL;
 		ums_compelem_id res_i = reserved_list[i];
@@ -268,13 +271,16 @@ int ums_compelem_exec(ums_compelem_id compelem_id,
 		if (res_i != compelem_id)
 			register_compelem(complist, curr);
 	}
+#endif
 
+	memcpy(current_pt_regs(), task_pt_regs(compelem->elem_task), sizeof(struct pt_regs));
+	printk("%s: setted pt_regs!\n", __func__);
 
-	*current_pt_regs() = *task_pt_regs(compelem->elem_task);
-
+	printk("Exit %s", __func__);
 	/* exec is called from already reserved compelems */
 	return 0;
 }
+
 
 static int new_complist(ums_complist_id comp_id,
 			struct ums_complist *complist)
