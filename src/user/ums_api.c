@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include "ll/list.h"
+#include <string.h>
 
 #define TASK_STACK_SIZE 65536
 #define create_ums_complist(id)  ioctl(global_fd, UMS_REQUEST_NEW_COMPLETION_LIST, id)
@@ -151,9 +152,13 @@ int CreateUmsCompletionList(ums_complist_id *id,
 	for (i = 0; i < list_count; i++) {
 		int thread_id = 0;
 		void *stack = malloc(TASK_STACK_SIZE);
-		int *buff = malloc(sizeof(int));
+		/* Initialise the buffer for the sub-thread */
+		void *buff = malloc(sizeof(int) + sizeof(ums_function));
 		
-		*buff = *id;
+		/* assign the complist id + function to execute */
+		memcpy(buff, id, sizeof(*id));
+		memcpy(buff+sizeof(int), &list[i], sizeof(list[i]));
+
 		thread_id = create_thread(__reg_compelem, stack, buff);
 		      
 		if (thread_id < 0) {
@@ -162,6 +167,8 @@ int CreateUmsCompletionList(ums_complist_id *id,
 		}
 		fprintf(stderr, "New thread %d created\n", thread_id);
 
+		/* TODO: check if this part is really useful. Probably a kernel
+		 * side solution is more principled */
 		new_id_elem(thread_id);
 
 	}
@@ -343,19 +350,23 @@ static int __reg_thread(void *sched_thread)
 static int __reg_compelem(void *idxs)
 {
 	int res, id, *buff;
+	ums_function func;
 
-	buff = idxs;
-	id = *buff;
+	id = *((int*) idxs);
+	func = *((ums_function*) (idxs + sizeof(int)));
+
 	free(buff);
 
 	// fprintf(stderr, "Registering new compelem to complist %d\n", id);
 
 	res = create_ums_compelem(&id);
 
+	func(id);
 	if (res) {
 		fprintf(stderr, "Error creating new compelem!\n");
 	}
 
+	fprintf(stderr, "%s: reached its end!\n", __func__);
 	/* not reached */
 	return res;
 }
