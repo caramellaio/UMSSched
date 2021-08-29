@@ -307,20 +307,19 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	case UMS_REQUEST_DEQUEUE_COMPLETION_LIST:
 	{
 		int err = 0;
-		int in_buf[2];
 		int num_elems, ret_size;
 		ums_complist_id comp_id, *ret_array;
 
-		if (copy_from_user(in_buf, (void*)data, sizeof(int)*2))
+		if (copy_from_user(&num_elems, (void*)data, sizeof(int)))
 			goto ums_dequeue_fail;
-
-		comp_id = in_buf[0];
-		num_elems = in_buf[1];
 
 		if (num_elems < 0 || num_elems > DEQUEUE_ELEM_MAX)
 			goto ums_dequeue_fail;
 		
 		ret_array = kmalloc(sizeof(int) * (num_elems + 1), GFP_KERNEL);
+
+		ums_sched_complist_by_current(&comp_id);
+
 		err = ums_complist_reserve(comp_id, num_elems,
 					   ret_array, &ret_size);
 

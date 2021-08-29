@@ -26,6 +26,8 @@ int ums_sched_exec(ums_sched_id id,
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id);
 
+int ums_sched_complist_by_current(ums_complist_id *res_id);
+
 void ums_sched_cleanup(void);
 
 #endif /* __UMS_SCHEDULER_H__ */

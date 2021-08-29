@@ -201,6 +201,20 @@ int ums_sched_exec(ums_sched_id id,
 	return res;
 }
 
+int ums_sched_complist_by_current(ums_complist_id *res_id)
+{
+	struct ums_sched_worker *worker;
+
+	get_worker_by_current(&worker);
+
+	if (! worker)
+		return -1;
+
+	*res_id = worker->owner->comp_id;
+
+	return 0;
+}
+
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);

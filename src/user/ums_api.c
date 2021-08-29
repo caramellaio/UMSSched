@@ -219,8 +219,7 @@ int UmsThreadYield(void)
 }
 
 
-int DequeueUmsCompletionListItems(ums_sched_id scheduler,
-				  int max_elements,
+int DequeueUmsCompletionListItems(int max_elements,
 				  ums_compelem_id *result_array,
 				  int *result_length)
 {
@@ -228,6 +227,8 @@ int DequeueUmsCompletionListItems(ums_sched_id scheduler,
 
 	OPEN_GLOBAL_FD();
 
+	/* the first expected element is the size */
+	*result_array = max_elements;
 	res = dequeue_complist(result_array);
 
 	if (res)
