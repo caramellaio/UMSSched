@@ -47,7 +47,7 @@ static int incr_c(int ums_sched)
 	
 
 	/* It is not sched! */
-	UmsThreadYield(ums_sched);
+	UmsThreadYield();
 
 	return c;
 }
@@ -59,7 +59,7 @@ static int decr_c(int ums_sched)
 	c--;
 	sleep(1);
 
-	UmsThreadYield(ums_sched);
+	UmsThreadYield();
 
 	return c;
 }
@@ -71,7 +71,7 @@ static int mult_c(int ums_sched)
 	c*=c;
 	sleep(1);
 
-	UmsThreadYield(ums_sched);
+	UmsThreadYield();
 
 	return c;
 }
@@ -80,15 +80,12 @@ static int entry_point(int ums_sched)
 {
 	int res;
 	fprintf(stderr, "entry_point: \n");
-	index = index % 3;
-	index++;
-	fprintf(stderr, "Index: %d\n", index);
-	if (ExecuteUmsThread(ums_sched, index++)) {
-		fprintf(stderr, "exec failed!\n");
-		res = -1;
-	}
+	///if (ExecuteUmsThread(ums_sched, index++)) {
+	///	fprintf(stderr, "exec failed!\n");
+	//	res = -1;
+	//}
 
-	UmsThreadYield(ums_sched);
+	UmsThreadYield();
 
 	fprintf(stderr, "end entry_point: \n");
 	index = index % 3;

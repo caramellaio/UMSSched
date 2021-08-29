@@ -26,7 +26,7 @@ int CreateUmsCompletionElement(ums_complist_id id,
 int ExecuteUmsThread(ums_sched_id sched_id,
                       ums_compelem_id next);
 
-int UmsThreadYield(ums_sched_id sched_id);
+int UmsThreadYield(void);
 
 
 int DequeueUmsCompletionListItems(ums_sched_id scheduler,

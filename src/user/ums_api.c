@@ -207,12 +207,12 @@ int ExecuteUmsThread(ums_sched_id sched_id,
 	return err;
 }
 
-int UmsThreadYield(ums_sched_id sched_id)
+int UmsThreadYield(void)
 {
 	int err;
 
 	OPEN_GLOBAL_FD();
-	err = thread_yield(sched_id);
+	err = thread_yield(NULL);
 
 	/* We will eventually return! */
 	return 0;
