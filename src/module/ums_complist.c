@@ -14,7 +14,7 @@
 #define __set_reserved(elem, list)				\
 	do {							\
 		(elem)->reserve_head = list;			\
-		list_add(list, &(elem)->reserve_list);		\
+		list_add(&(elem)->reserve_list, list);		\
 	 } while (0)
 
 #define __set_released(elem)					\
@@ -217,6 +217,8 @@ int ums_complist_reserve(ums_complist_id comp_id,
 
 	if (unlikely(! reserve_list))
 		return -2;
+
+	INIT_LIST_HEAD(reserve_list);
 
 	if (! complist)
 		return -1;

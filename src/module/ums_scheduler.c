@@ -97,6 +97,7 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 	}
 
 	/* set cpu var to current. */
+	worker->owner = sched;
 	worker->worker = current;
 
 	printk("get_ums_context");
