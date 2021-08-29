@@ -79,13 +79,23 @@ static int mult_c(int ums_sched)
 static int entry_point(int ums_sched)
 {
 	int res;
-	fprintf(stderr, "entry_point: \n");
-	///if (ExecuteUmsThread(ums_sched, index++)) {
-	///	fprintf(stderr, "exec failed!\n");
-	//	res = -1;
-	//}
+	int res_len;
+	int shared[2];
 
-	UmsThreadYield();
+	fprintf(stderr, "entry_point: \n");
+
+	DequeueUmsCompletionListItems(1, shared, &res_len);
+	fprintf(stderr, "compelem to exec: %d\n", shared[0]);
+
+	if (res_len <= 0) {
+		fprintf(stderr, "dequeue failed!!!\n");
+		return -1;
+	}
+
+	if (ExecuteUmsThread(shared[0])) {
+		fprintf(stderr, "exec failed!\n");
+		res = -1;
+	}
 
 	fprintf(stderr, "end entry_point: \n");
 	index = index % 3;
