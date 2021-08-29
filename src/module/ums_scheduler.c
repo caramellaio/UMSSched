@@ -198,9 +198,11 @@ int ums_sched_exec(ums_sched_id id,
 	if (! sched)
 		return -1;
 
-	/* TODO: assert worker == current */
 	worker = get_worker(sched);
-	/* TODO: assert worker->elem_id = 0 */
+
+	/* if executed by a worker restore */
+	if (worker->current_elem)
+		ums_compelem_store_reg(worker->current_elem);
 
 	/* mark as the runner */
 	worker->current_elem = elem_id;
