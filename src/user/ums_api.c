@@ -20,7 +20,6 @@
 #define wait_ums_sched(id)       ioctl(global_fd, UMS_REQUEST_WAIT_UMS_SCHEDULER, id)
 #define thread_yield(id)         ioctl(global_fd, UMS_REQUEST_YIELD, id)
 #define exec_thread(id)          ioctl(global_fd, UMS_REQUEST_EXEC, id)
-#define do_reg_entry_point(id)   ioctl(global_fd, UMS_REQUEST_REGISTER_ENTRY_POINT, id)
 #define do_reg_thread(id)        ioctl(global_fd, UMS_REQUEST_REGISTER_SCHEDULER_THREAD, id)
 #define dequeue_complist(id)	 ioctl(global_fd, UMS_REQUEST_DEQUEUE_COMPLETION_LIST, id)
 
@@ -39,26 +38,21 @@ static int global_fd = 0;
 static void* do_gen_ums_sched(void *args);
 /* TODO: Move to header */
 
-struct sched_entry_point {
+struct sched_thread_args {
 	ums_sched_id id;
+	int	     cpu;
 	ums_function entry_point;
 };
 
-struct sched_thread {
-	ums_sched_id id;
-	int	     cpu;
-};
 
-
+/* TODO: remove */
 struct id_elem {
 	int thread_id;
 	struct list_head list;
 };
 
-static void register_entry_point(ums_sched_id id,
-				 ums_function entry_func);
-
-static void register_threads(ums_sched_id sched_id);
+static void register_threads(ums_sched_id sched_id,
+			     ums_function entry_point);
 
 static int __entry_point(void *sched_ep);
 
@@ -89,9 +83,7 @@ int EnterUmsSchedulingMode(ums_function entry_point,
 	*result = buff;
 
 	/* TODO: add a way to get the result */
-	register_entry_point(*result, entry_point);
-
-	register_threads(*result);
+	register_threads(*result, entry_point);
 
 	return err;
 }
@@ -253,40 +245,26 @@ int DequeueUmsCompletionListItems(ums_sched_id scheduler,
 }
 
 
-static void register_entry_point(ums_sched_id id,
-				 ums_function entry_func)
-{
-	int thread_id;
-
-	void *stack = malloc(TASK_STACK_SIZE);
-	struct sched_entry_point *sched_ep = malloc(sizeof(struct sched_entry_point));
-
-	sched_ep->id = id;
-	sched_ep->entry_point = entry_func;
-
-	thread_id = create_thread(__entry_point, stack, sched_ep);
-
-	if (thread_id < 0) {
-		fprintf(stderr, "Fail creating thread in %s: internal error\n", __func__);
-	}
-
-	new_id_elem(thread_id);
-}
-
-static void register_threads(ums_sched_id sched_id)
+static void register_threads(ums_sched_id sched_id,
+			     ums_function entry_point)
 {
 	int i;
 	int n_cpu = get_nprocs();
 
+	fprintf(stderr, "n_cpus: %d\n", n_cpu);
+
 	for (i = 0; i < n_cpu; i++) {
 		int thread_id;
 		void *stack = malloc(TASK_STACK_SIZE);
-		struct sched_thread *infos = malloc(sizeof(struct sched_thread));
+		struct sched_thread_args *info;
+	       
+		info = malloc(sizeof(struct sched_thread_args));
 
-		infos->id = sched_id;
-		infos->cpu = i;
+		info->id = sched_id;
+		info->cpu = i;
+		info->entry_point = entry_point;
 
-		thread_id = create_thread(__reg_thread, stack, infos);
+		thread_id = create_thread(__reg_thread, stack, info);
 
 		if (thread_id < 0) {
 			fprintf(stderr, "Thread registration for CPU %d failed!", i);
@@ -297,46 +275,19 @@ static void register_threads(ums_sched_id sched_id)
 	}
 }
 
-static int __entry_point(void *idx)
-{
-	int res;
-	int id;
-	struct sched_entry_point *sched_ep;
-	ums_function entry_func;
-
-	sched_ep = (struct sched_entry_point*)idx;
-	id = sched_ep->id;
-	entry_func = sched_ep->entry_point;
-	free(sched_ep);
-
-	res = do_reg_entry_point(&id);
-
-	if (res) {
-		fprintf(stderr, "Error in register_entry_point: %d\n", res);
-		return res;
-	}
-
-	/* ums_sched module should block the process here. */
-	/* The internal function will take the identifier as a parameter */
-
-	fprintf(stderr, "I am calling entry function! Yeee\n");
-	entry_func(id);
-
-	/* not reached */
-	return 0;
-}
-
 static int __reg_thread(void *sched_thread)
 {
 	int res;
 	int cpu;
 	ums_sched_id id;
 	cpu_set_t set;
-	struct sched_thread* thread_info;
+	struct sched_thread_args* thread_info;
+	ums_function entry_point;
 
-	thread_info = (struct sched_thread*)sched_thread;
+	thread_info = (struct sched_thread_args*)sched_thread;
 	cpu = thread_info->cpu;
 	id = thread_info->id;
+	entry_point = thread_info->entry_point;
 
 	free(thread_info);
 
@@ -344,10 +295,13 @@ static int __reg_thread(void *sched_thread)
 	CPU_SET(cpu, &set);
 	sched_setaffinity(0, sizeof(set), &set);
 
+	fprintf(stderr, "registering thread for cpu: %d\n", cpu);
 	res = do_reg_thread(&id);
 
 	if (res)
 		return res;
+
+	entry_point(id);
 
 	fprintf(stderr, "%s: reached its end!\n", __func__);
 	/* not reached */
