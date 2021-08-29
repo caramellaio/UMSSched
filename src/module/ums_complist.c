@@ -38,21 +38,21 @@ struct ums_complist {
 	struct hlist_node list;
 	struct kfifo ready_queue;
 
-	/* TODO: add compelems list in the future */
-	// list_head compelems;
+	struct list_head compelems;
 
 	struct semaphore elem_sem;
 };
 
 struct ums_compelem {
 	ums_compelem_id id;
-	ums_complist_id list_id;
 	/* The scheduler that is currently hosting the execution of compelem */
 	ums_sched_id host_id;
 
+	struct ums_complist *complist;
+
 	struct hlist_node list;
 	
-	// list_head complist;
+	struct list_head complist_head;
 
 	/* pointer to the header of the reservation list */
 	struct list_head *reserve_head;
@@ -73,7 +73,7 @@ static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
 
 static int new_compelement(ums_compelem_id elem_id,
-			   ums_complist_id list_id,
+			   struct ums_complist *complist,
 			   struct ums_compelem *comp_elem);
 
 static void get_from_compelem_id(ums_compelem_id id,
@@ -126,6 +126,7 @@ int ums_complist_remove(ums_complist_id id)
 	while (kfifo_out(&complist->ready_queue, &compelem_id, sizeof(compelem_id)))
 		ums_compelem_remove(compelem_id);
 
+	/* TODO: Kill list compelems!!! */
 	kfifo_free(&complist->ready_queue);
 
 	/* TODO: remove using a linked list of all the elements! */
@@ -153,7 +154,7 @@ int ums_compelem_add(ums_compelem_id* result,
 	if (! compelem) 
 		return -1;
 
-	res = new_compelement(*result, list_id, compelem);
+	res = new_compelement(*result, complist, compelem);
 
 	__register_compelem(complist, compelem);
 
@@ -175,6 +176,7 @@ int ums_compelem_remove(ums_compelem_id id)
 
 	hash_del(&compelem->list);
 
+	/* remove from the list, if list is empty delete complist! */
 	kfree(compelem);
 
 	return 0;
@@ -254,7 +256,6 @@ int ums_complist_reserve(ums_complist_id comp_id,
 int ums_compelem_store_reg(ums_compelem_id compelem_id)
 {
 	struct ums_compelem *compelem = NULL;
-	struct ums_complist *complist = NULL;
 
 	get_from_compelem_id(compelem_id, &compelem);
 
@@ -262,14 +263,8 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 		return -1;
 
 	memcpy(compelem->elem_task, current_pt_regs(), sizeof(struct pt_regs));
-	get_from_complist_id(compelem->list_id, &complist);
 
-	if (unlikely(!complist)) {
-		printk(KERN_ERR "compelem data structure contains non existing complist!\n");
-		return -2;
-	}
-
-	__register_compelem(complist, compelem);
+	__register_compelem(compelem->complist, compelem);
 
 	return 0;
 }
@@ -278,7 +273,6 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 {
 	struct list_head *list_iter, *temp_head;
 
-	ums_complist_id list_id;
 	struct ums_compelem *compelem = NULL;
 	struct ums_complist *complist = NULL;
 
@@ -289,17 +283,6 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 		printk(KERN_ERR "Compelem not found");
 		return -1;
 	}
-
-	list_id = compelem->list_id;
-
-	get_from_complist_id(list_id, &complist);
-
-	if (! complist) {
-		printk(KERN_ERR "Complist not found");
-		return -2;
-	}
-	
-	printk("res_head: %p", compelem->reserve_head);
 
 	/* completion element must be reserved */
 	if (! compelem->reserve_head)
@@ -354,6 +337,8 @@ static int new_complist(ums_complist_id comp_id,
 
 	sema_init(&complist->elem_sem, 0);
 
+	INIT_LIST_HEAD(&complist->compelems);
+
 	hash_add(ums_complist_hash, &complist->list, complist->id);
 
 new_complist_exit:
@@ -361,16 +346,17 @@ new_complist_exit:
 }
 
 static int new_compelement(ums_compelem_id elem_id,
-			   ums_complist_id list_id,
+			   struct ums_complist *complist,
 			   struct ums_compelem *comp_elem)
 {
 	comp_elem->id = elem_id;
 	comp_elem->elem_task = current;
-	comp_elem->list_id = list_id;
+	comp_elem->complist = complist;
 	comp_elem->host_id = COMPELEM_NO_HOST;
 	comp_elem->reserve_head = NULL;
 
 	hash_add(ums_compelem_hash, &comp_elem->list, comp_elem->id);
+	list_add(&comp_elem->complist_head, &complist->compelems);
 
 	return 0;
 }
