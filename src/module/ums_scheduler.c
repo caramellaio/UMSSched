@@ -47,8 +47,11 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 
 static void deinit_ums_scheduler(struct ums_scheduler* sched);
 
+/* TODO: turn this functions into macros */
 static void get_sched_by_id(ums_sched_id id, 
 			    struct ums_scheduler** sched);
+
+static void get_worker_by_current(struct ums_sched_worker **worker);
 
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
@@ -119,6 +122,7 @@ int ums_sched_wait(ums_sched_id sched_id)
 	if (! sched)
 		return -1;
 
+	/* TODO: this kmalloc is non-sense */
 	wait = kmalloc(sizeof(struct ums_sched_wait), GFP_KERNEL);
 
 	if (! wait)
@@ -149,21 +153,22 @@ int ums_sched_remove(ums_sched_id id)
 	return 0;
 }
 
-int ums_sched_yield(ums_sched_id id)
+int ums_sched_yield(void)
 {
-	struct ums_scheduler *sched;
 	struct ums_sched_worker *worker;
 
-	get_sched_by_id(id, &sched);
+	get_worker_by_current(&worker);
 
-	if (! sched)
+	if (unlikely(! worker))
 		return -1;
 
-	worker = get_worker(sched);
+	// worker = get_worker(sched);
 
+	/* save compelem state if necessary */
 	if (worker->current_elem)
 		ums_compelem_store_reg(worker->current_elem);
 	
+	/* set current to entry_point */
 	worker->current_elem = 0;
 	put_ums_context(current, &worker->entry_ctx);
 
@@ -278,5 +283,14 @@ static void get_sched_by_id(ums_sched_id id,
 
 	hash_for_each_possible(ums_sched_hash, *sched, list, id) {
 		if ((*sched)->id == id) break;
+	}
+}
+
+static void get_worker_by_current(struct ums_sched_worker **worker)
+{
+	*worker = NULL;
+
+	hash_for_each_possible(ums_sched_worker_hash, *worker, list, current->pid) {
+		if ((*worker)->worker->pid == current->pid) break;
 	}
 }

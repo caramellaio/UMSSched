@@ -211,8 +211,9 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	{
 		printk(KERN_DEBUG MODULE_NAME_LOG "Calling yield\n");
 
-		if (ums_sched_yield((ums_sched_id)data)) {
+		if (ums_sched_yield()) {
 			printk(KERN_ERR MODULE_NAME_LOG "yield failed!\n");
+			return FAILURE;
 		}
 	}
 	break;

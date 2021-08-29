@@ -19,14 +19,12 @@ int ums_sched_wait(ums_sched_id sched_id);
 
 int ums_sched_remove(ums_sched_id identifier);
 
-int ums_sched_yield(ums_sched_id id);
+int ums_sched_yield(void);
 
 int ums_sched_exec(ums_sched_id id,
 		   ums_compelem_id elem_id);
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id);
-
-int ums_sched_register_entry_point(ums_sched_id sched_id);
 
 void ums_sched_cleanup(void);
 
