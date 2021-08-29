@@ -190,18 +190,13 @@ int CreateUmsCompletionElement(ums_complist_id id,
 	return 0;
 }
 
-int ExecuteUmsThread(ums_sched_id sched_id,
-                      ums_compelem_id next)
+int ExecuteUmsThread(ums_compelem_id next)
 {
 	int err;
-	int buff[2];
 
 	OPEN_GLOBAL_FD();
 
-	buff[0] = sched_id;
-	buff[1] = next;
-
-	err = exec_thread(buff);
+	err = exec_thread(next);
 
 	/* We will eventually return! */
 	return err;

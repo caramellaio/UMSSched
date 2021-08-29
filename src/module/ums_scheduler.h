@@ -21,8 +21,7 @@ int ums_sched_remove(ums_sched_id identifier);
 
 int ums_sched_yield(void);
 
-int ums_sched_exec(ums_sched_id id,
-		   ums_compelem_id elem_id);
+int ums_sched_exec(ums_compelem_id elem_id);
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id);
 

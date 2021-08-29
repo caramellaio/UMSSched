@@ -190,17 +190,11 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 
 	case UMS_REQUEST_EXEC:
 	{
-		int in_buf[2];
 		int err = 0;
 
-		if (copy_from_user(in_buf, (void*)data, sizeof(int)*2))
-			return FAILURE;
-
 		printk(KERN_DEBUG MODULE_NAME_LOG "Calling exec\n");
-		
 
-
-		err = ums_sched_exec(in_buf[0], in_buf[1]);
+		err = ums_sched_exec((ums_compelem_id)data);
 
 		if (err)
 			return FAILURE;

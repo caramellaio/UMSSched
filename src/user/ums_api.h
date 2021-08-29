@@ -23,8 +23,7 @@ int CreateUmsCompletionElement(ums_complist_id id,
 		               ums_function func);
 
 
-int ExecuteUmsThread(ums_sched_id sched_id,
-                      ums_compelem_id next);
+int ExecuteUmsThread(ums_compelem_id next);
 
 int UmsThreadYield(void);
 

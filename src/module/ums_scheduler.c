@@ -175,19 +175,15 @@ int ums_sched_yield(void)
 	return 0;
 }
 
-int ums_sched_exec(ums_sched_id id,
-		   ums_compelem_id elem_id)
+int ums_sched_exec(ums_compelem_id elem_id)
 {
-	struct ums_scheduler *sched;
 	struct ums_sched_worker *worker;
 	int res = 0;
 	
-	get_sched_by_id(id, &sched);
+	get_worker_by_current(&worker);
 
-	if (! sched)
+	if (unlikely(! worker))
 		return -1;
-
-	worker = get_worker(sched);
 
 	/* if executed by a worker restore */
 	if (worker->current_elem)
