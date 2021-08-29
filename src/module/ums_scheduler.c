@@ -1,18 +1,23 @@
 #include "ums_scheduler.h"
+#include "ums_context_switch.h"
+
 #include <linux/slab.h>
 #include <linux/percpu.h>
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
-#include <linux/sched/task_stack.h>
 #include <linux/hashtable.h>
 #include <linux/list.h>
-#include <linux/ptrace.h>
-#include <asm/processor.h>
 
 #define get_worker(sched) (*get_cpu_ptr(sched->workers))
+
 struct ums_sched_worker {
-	struct task_struct *worker;
+	struct ums_scheduler *owner;
 	ums_compelem_id current_elem;
+
+	struct hlist_node list;
+
+	struct task_struct *worker;
+	struct ums_context entry_ctx;
 };
 
 struct ums_scheduler {
@@ -20,7 +25,6 @@ struct ums_scheduler {
 	ums_complist_id				comp_id;
 	struct hlist_node			list;
 	struct ums_sched_worker __percpu	**workers;
-	struct task_struct			*entry_point;
 	struct list_head			wait_procs;
 };
 
@@ -32,6 +36,9 @@ struct ums_sched_wait {
 
 static DEFINE_HASHTABLE(ums_sched_hash, UMS_SCHED_HASH_BITS);
 
+/* get a `ums_sched_worker` from its pid */
+static DEFINE_HASHTABLE(ums_sched_worker_hash, UMS_SCHED_HASH_BITS);
+
 static atomic_t ums_sched_counter = ATOMIC_INIT(0);
 
 static void init_ums_scheduler(struct ums_scheduler* sched, 
@@ -40,14 +47,8 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 
 static void deinit_ums_scheduler(struct ums_scheduler* sched);
 
-static void sched_switch(struct ums_sched_worker *worker,
-			 struct task_struct *new_task,
-			 ums_compelem_id new_compelem);
-
 static void get_sched_by_id(ums_sched_id id, 
 			    struct ums_scheduler** sched);
-
-static void _check_caller(struct ums_sched_worker *worker);
 
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
@@ -85,6 +86,7 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 	worker = get_worker(sched);
 
 
+	printk(KERN_ERR "worker pid: %d, current cpu: %d", current->pid, task_cpu(current));
 	/* Error: already registered */
 	if (worker->worker) {
 		res = -2; 
@@ -94,36 +96,17 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 	/* set cpu var to current. */
 	worker->worker = current;
 
-	put_cpu_var(sched->workers);
+	printk("get_ums_context");
 
-	/* TODO: this is temporary, a proper sync mechanism will be implemented */
-	if (!sched->entry_point) {
-		res = -3;
-		goto register_thread_exit;
-	}
+	gen_ums_context(current, &worker->entry_ctx);
+	printk("end get_ums_context");
+	put_cpu_ptr(sched->workers);
 
-	sched_switch(worker, sched->entry_point, 0);
+	hash_add(ums_sched_worker_hash, &worker->list, worker->worker->pid);
+
 register_thread_exit:
+
 	return res;
-}
-
-int ums_sched_register_entry_point(ums_sched_id sched_id)
-{
-	struct ums_scheduler* sched;
-
-	get_sched_by_id(sched_id, &sched);
-
-	printk(KERN_DEBUG "sched_id=%d, sched=%p", sched_id, sched);
-	if (!sched)
-		return -1;
-
-	sched->entry_point = current;
-
-	/* block the process */
-	set_current_state(TASK_INTERRUPTIBLE);
-	schedule();
-
-	return 0;
 }
 
 int ums_sched_wait(ums_sched_id sched_id)
@@ -170,19 +153,20 @@ int ums_sched_yield(ums_sched_id id)
 {
 	struct ums_scheduler *sched;
 	struct ums_sched_worker *worker;
-	struct task_struct *new_task;
-
 
 	get_sched_by_id(id, &sched);
 
 	if (! sched)
 		return -1;
 
-	new_task = sched->entry_point;
-
 	worker = get_worker(sched);
 
-	sched_switch(worker, new_task, 0);
+	if (worker->current_elem)
+		ums_compelem_store_reg(worker->current_elem);
+	
+	worker->current_elem = 0;
+	put_ums_context(current, &worker->entry_ctx);
+
 	return 0;
 }
 
@@ -215,6 +199,7 @@ int ums_sched_exec(ums_sched_id id,
 int ums_sched_init(void)
 {
 	hash_init(ums_sched_hash);
+	hash_init(ums_sched_worker_hash);
 	return 0;
 }
 
@@ -245,8 +230,6 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 		worker->worker = NULL;
 		(*per_cpu_ptr(sched->workers, cpu)) = worker;
 	}
-
-	sched->entry_point = NULL;
 
 	INIT_LIST_HEAD(&sched->wait_procs);
 }
@@ -296,34 +279,4 @@ static void get_sched_by_id(ums_sched_id id,
 	hash_for_each_possible(ums_sched_hash, *sched, list, id) {
 		if ((*sched)->id == id) break;
 	}
-}
-
-static void sched_switch(struct ums_sched_worker *worker,
-			 struct task_struct *new_task,
-			 ums_compelem_id new_compelem)
-{
-	struct pt_regs *current_regs, *target_regs;
-	_check_caller(worker);
-
-	printk(KERN_DEBUG "Entering %s", __func__);
-
-	current_regs = current_pt_regs();
-	target_regs = task_pt_regs(new_task);
-
-	/* store current pt_regs in its  */
-	/* current elem = 0 means we are running `entry_point` */
-	if (worker->current_elem) {
-		ums_compelem_store_reg(worker->current_elem);
-	}
-
-	worker->current_elem = new_compelem;
-	/* TODO: notify complist! */
-
-	memcpy(current_regs, target_regs, sizeof(struct pt_regs));
-	printk(KERN_DEBUG "Exit %s", __func__);
-}
-
-static void _check_caller(struct ums_sched_worker *worker)
-{
-
 }
