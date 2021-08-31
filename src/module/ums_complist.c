@@ -137,7 +137,18 @@ int ums_compelem_remove(ums_compelem_id id)
 
 	hash_del(&compelem->list);
 
+	if (compelem->reserve_head) {
+		list_del(&compelem->reserve_list);
+		if (list_empty(compelem->reserve_head))
+			kfree(compelem->reserve_head);
+	}
+
 	/* remove from the list, if list is empty delete complist! */
+	list_del(&compelem->complist_head);
+
+	if (list_empty(&compelem->complist->compelems))
+		delete_complist(compelem->complist);
+
 	kfree(compelem);
 
 	return 0;
