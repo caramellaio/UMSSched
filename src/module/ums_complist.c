@@ -1,4 +1,5 @@
 #include "ums_complist.h"
+#include "ums_complist_internal.h"
 /* only for ums_sched_id */
 #include "ums_scheduler.h"
 
@@ -33,35 +34,6 @@
 		up(&complist->elem_sem);			\
 	} while (0)
 
-struct ums_complist {
-	ums_complist_id id;
-	struct hlist_node list;
-	struct kfifo ready_queue;
-
-	struct list_head compelems;
-
-	struct semaphore elem_sem;
-};
-
-struct ums_compelem {
-	ums_compelem_id id;
-	/* The scheduler that is currently hosting the execution of compelem */
-	ums_sched_id host_id;
-
-	struct ums_complist *complist;
-
-	struct hlist_node list;
-	
-	struct list_head complist_head;
-
-	/* pointer to the header of the reservation list */
-	struct list_head *reserve_head;
-
-	/* element of the list */
-	struct list_head reserve_list;
-
-	struct task_struct* elem_task;
-};
 
 static DEFINE_HASHTABLE(ums_complist_hash, UMS_COMPLIST_HASH_BITS);
 static DEFINE_HASHTABLE(ums_compelem_hash, UMS_COMPELEM_HASH_BITS);
@@ -75,12 +47,6 @@ static int new_complist(ums_complist_id comp_id,
 static int new_compelement(ums_compelem_id elem_id,
 			   struct ums_complist *complist,
 			   struct ums_compelem *comp_elem);
-
-static void get_from_compelem_id(ums_compelem_id id,
-				struct ums_compelem** compelem);
-
-static void get_from_complist_id(ums_complist_id id,
-				struct ums_complist** complist);
 
 
 static int reserve_compelem(struct ums_complist *complist,
@@ -116,7 +82,7 @@ int ums_complist_remove(ums_complist_id id)
 	struct ums_complist *complist;
 	ums_compelem_id compelem_id;
 
-	get_from_complist_id(id, &complist);
+	__get_from_complist_id(id, &complist);
 
 	if (! complist)
 		return -1;
@@ -142,7 +108,7 @@ int ums_compelem_add(ums_compelem_id* result,
 
 	*result = atomic_inc_return(&ums_compelem_counter);
 
-	get_from_complist_id(list_id, &complist);
+	__get_from_complist_id(list_id, &complist);
 
 	if (! complist) {
 		printk(KERN_DEBUG "Complist %d not found!\n", list_id);
@@ -169,7 +135,7 @@ int ums_compelem_remove(ums_compelem_id id)
 {
 	struct ums_compelem *compelem;
 
-	get_from_compelem_id(id, &compelem);
+	__get_from_compelem_id(id, &compelem);
 
 	if (! compelem)
 		return -1;
@@ -191,15 +157,6 @@ int ums_complist_init(void)
 	return 0;
 }
 
-int ums_complist_exists(ums_complist_id comp_id)
-{
-	struct ums_complist *complist = NULL;
-
-	get_from_complist_id(comp_id, &complist);
-
-	return NULL != complist;
-}
-
 int ums_complist_reserve(ums_complist_id comp_id,
 			 int to_reserve,
 			 ums_compelem_id *ret_array,
@@ -212,7 +169,7 @@ int ums_complist_reserve(ums_complist_id comp_id,
 
 	*size = 0;
 
-	get_from_complist_id(comp_id, &complist);
+	__get_from_complist_id(comp_id, &complist);
 
 	/* reserve list is destroyed in Execute function by the choosen compelem */
 	reserve_list = kmalloc(sizeof(struct list_head), GFP_KERNEL);
@@ -257,7 +214,8 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 {
 	struct ums_compelem *compelem = NULL;
 
-	get_from_compelem_id(compelem_id, &compelem);
+	/* TODO: reset host_id */
+	__get_from_compelem_id(compelem_id, &compelem);
 
 	if (! compelem)
 		return -1;
@@ -277,7 +235,7 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 	struct ums_complist *complist = NULL;
 
 	printk("Entering %s", __func__);
-	get_from_compelem_id(compelem_id, &compelem);
+	__get_from_compelem_id(compelem_id, &compelem);
 
 	if (! compelem) {
 		printk(KERN_ERR "Compelem not found");
@@ -361,8 +319,8 @@ static int new_compelement(ums_compelem_id elem_id,
 	return 0;
 }
 
-static void get_from_complist_id(ums_complist_id id,
-				struct ums_complist** complist)
+void __get_from_complist_id(ums_complist_id id,
+	      		    struct ums_complist** complist)
 {
 	*complist = NULL;
 
@@ -372,8 +330,8 @@ static void get_from_complist_id(ums_complist_id id,
 	}
 }
 
-static void get_from_compelem_id(ums_compelem_id id,
-				struct ums_compelem** compelem)
+void __get_from_compelem_id(ums_compelem_id id,
+	       		    struct ums_compelem** compelem)
 {
 	*compelem = NULL;
 
