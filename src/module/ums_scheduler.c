@@ -1,4 +1,6 @@
 #include "ums_scheduler.h"
+#include "ums_complist.h"
+#include "ums_complist_internal.h"
 #include "ums_context_switch.h"
 
 #include <linux/slab.h>
@@ -23,9 +25,15 @@ struct ums_sched_worker {
 struct ums_scheduler {
 	ums_sched_id				id;
 	ums_complist_id				comp_id;
+	/* used by hash */
 	struct hlist_node			list;
+
 	struct ums_sched_worker __percpu	**workers;
+	/* TODO: remove? */
 	struct list_head			wait_procs;
+
+	/* completion list has also a list of affiliated schedulers */
+	struct list_head			complist_head;
 };
 
 
@@ -56,18 +64,23 @@ static void get_worker_by_current(struct ums_sched_worker **worker);
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
 	struct ums_scheduler* ums_sched = NULL;
+	struct ums_complist * complist = NULL;
 
-	if (! ums_complist_exists(comp_list_id)) {
+	__get_from_complist_id(comp_list_id, &complist);
+       	
+	if (! complist) {
 		printk("Error in %s: complist %d does not exist", __func__, comp_list_id);
 		return -1;
 	}
-	//	return ERROR_MISSING_COMPLIST;
 
 	*identifier = atomic_inc_return(&ums_sched_counter);
 
 	ums_sched = (struct ums_scheduler*) kmalloc(sizeof(struct ums_scheduler), GFP_KERNEL);
 
 	init_ums_scheduler(ums_sched, *identifier, comp_list_id);
+	
+	/* TODO: add complist reader lock */
+	__complist_add_sched(complist, &ums_sched->complist_head);
 	return 0;
 }
 

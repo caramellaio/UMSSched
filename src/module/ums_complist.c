@@ -296,6 +296,7 @@ static int new_complist(ums_complist_id comp_id,
 	sema_init(&complist->elem_sem, 0);
 
 	INIT_LIST_HEAD(&complist->compelems);
+	INIT_LIST_HEAD(&complist->schedulers);
 
 	hash_add(ums_complist_hash, &complist->list, complist->id);
 
