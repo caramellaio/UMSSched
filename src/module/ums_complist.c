@@ -1,6 +1,8 @@
 #include "ums_complist.h"
 #include "ums_complist_internal.h"
-/* only for ums_sched_id */
+/* Only for delete part */
+#include "ums_scheduler_internal.h"
+
 #include "ums_scheduler.h"
 
 #include <linux/kfifo.h>
@@ -44,6 +46,8 @@ static atomic_t ums_compelem_counter = ATOMIC_INIT(0);
 static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
 
+static int delete_complist(struct ums_complist *complist);
+
 static int new_compelement(ums_compelem_id elem_id,
 			   struct ums_complist *complist,
 			   struct ums_compelem *comp_elem);
@@ -80,22 +84,13 @@ int ums_complist_add(ums_complist_id *result)
 int ums_complist_remove(ums_complist_id id)
 {
 	struct ums_complist *complist;
-	ums_compelem_id compelem_id;
-
 	__get_from_complist_id(id, &complist);
 
 	if (! complist)
 		return -1;
 
-	hash_del(&complist->list);
+	delete_complist(complist);
 
-	while (kfifo_out(&complist->ready_queue, &compelem_id, sizeof(compelem_id)))
-		ums_compelem_remove(compelem_id);
-
-	/* TODO: Kill list compelems!!! */
-	kfifo_free(&complist->ready_queue);
-
-	/* TODO: remove using a linked list of all the elements! */
 	return 0;
 }
 
@@ -302,6 +297,30 @@ static int new_complist(ums_complist_id comp_id,
 
 new_complist_exit:
 	return res;
+}
+
+static int delete_complist(struct ums_complist *complist)
+{
+	struct list_head *iter, *safeiter;
+	/* TODO: writelock() */
+
+	hash_del(&complist->list);
+
+	kfifo_free(&complist->ready_queue);
+
+	list_for_each_safe(iter, safeiter, &complist->schedulers) {
+		struct ums_scheduler *sched;
+
+		sched = list_entry(iter, struct ums_scheduler, complist_head);
+
+		if (likely(sched))
+			/* TODO: use macro */
+			ums_sched_remove(sched->id);
+	}
+
+	kfree(complist);
+
+	return 0;
 }
 
 static int new_compelement(ums_compelem_id elem_id,
