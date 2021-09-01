@@ -15,28 +15,14 @@ struct ums_context {
 	do {								\
 		memcpy(&(res)->pt_regs, task_pt_regs(task),		\
 		       sizeof(struct pt_regs));				\
-	} while (0)
-
-#define get_ums_context(task, ctx)					\
-	do {								\
-		memcpy(&(ctx)->pt_regs, task_pt_regs(task),		\
-		       sizeof(struct pt_regs));				\
+		memset(&(res)->fpu_regs, 0, sizeof(struct fpu));	\
 	} while (0)
 
 #define put_ums_context(task, ctx)					\
 	do {								\
 		memcpy(task_pt_regs(task), &(ctx)->pt_regs,		\
 		       sizeof(struct pt_regs));				\
+		copy_fxregs_to_kernel(&(ctx)->fpu_regs);		\
 	} while (0)
 
-#define dump_pt_regs(regs)						\
-	__dump_pt_regs(&regs.pt_regs)
-
-#define __dump_pt_regs(pt_regs)						\
-	do {								\
-		printk(KERN_DEBUG					\
-		       "PT_REGS:\n\tip=%ld\n\tcs=%ld\n\tsp=%ld\n\tss=%ld\n",	\
-		       (pt_regs)->ip,(pt_regs)->cs,			\
-		       (pt_regs)->sp, (pt_regs)->ss);			\
-	} while (0)
 #endif /* __UMS_CONTEXT_SWITCH_H__ */

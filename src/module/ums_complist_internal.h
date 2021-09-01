@@ -6,7 +6,6 @@
 #include <linux/hashtable.h>
 #include "ums_complist.h"
 #include "ums_scheduler.h"
-#include "ums_context_switch.h"
 
 #define __complist_add_sched(complist, sched_list_head)			\
 	(list_add(sched_list_head, &complist->schedulers))
@@ -39,10 +38,7 @@ struct ums_compelem {
 	/* element of the list */
 	struct list_head reserve_list;
 
-	/* TODO: might remove the task */
 	struct task_struct* elem_task;
-
-	struct ums_context entry_ctx;
 };
 
 void __get_from_compelem_id(ums_compelem_id id,
