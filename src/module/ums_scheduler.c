@@ -88,6 +88,10 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 
 	gen_ums_context(current, &worker->entry_ctx);
 	printk("end get_ums_context");
+
+	printk(KERN_DEBUG "thread pt_reg of pid= %d", current->pid);
+	dump_pt_regs(worker->entry_ctx);
+
 	put_cpu_ptr(sched->workers);
 
 	hash_add(ums_sched_worker_hash, &worker->list, worker->worker->pid);
@@ -155,6 +159,12 @@ int ums_sched_yield(void)
 	
 	/* set current to entry_point */
 	worker->current_elem = 0;
+
+	printk(KERN_DEBUG "yield pt_reg of pid= %d", current->pid);
+	dump_pt_regs(worker->entry_ctx);
+
+	printk(KERN_DEBUG "yield pt_regs before change %d", current->pid);
+	__dump_pt_regs(task_pt_regs(current));
 	put_ums_context(current, &worker->entry_ctx);
 
 	return 0;
