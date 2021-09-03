@@ -22,6 +22,7 @@
 #define exec_thread(id)          ioctl(global_fd, UMS_REQUEST_EXEC, id)
 #define do_reg_thread(id)        ioctl(global_fd, UMS_REQUEST_REGISTER_SCHEDULER_THREAD, id)
 #define dequeue_complist(id)	 ioctl(global_fd, UMS_REQUEST_DEQUEUE_COMPLETION_LIST, id)
+#define delete_compelem(id)	 ioctl(global_fd, UMS_REQUEST_REMOVE_COMPLETION_ELEM, id)
 
 #define create_thread(function, stack, args)				\
 	clone(&function, stack + TASK_STACK_SIZE,			\
@@ -66,8 +67,8 @@ int EnterUmsSchedulingMode(ums_function entry_point,
                            ums_complist_id complist_id,
 			   ums_sched_id *result)
 {
-	int buff;
-	int err;
+	int buff = 0;
+	int err = 1;
 
 	OPEN_GLOBAL_FD();
 
@@ -209,8 +210,9 @@ int UmsThreadYield(void)
 	OPEN_GLOBAL_FD();
 	err = thread_yield(NULL);
 
+	fprintf(stderr, "Returned from yield: %d\n", err);
 	/* We will eventually return! */
-	return 0;
+	return err;
 }
 
 
@@ -295,11 +297,12 @@ static int __reg_thread(void *sched_thread)
 	res = do_reg_thread(&id);
 
 	if (res)
-		return res;
+		fprintf(stderr, "reg failed!!\n");
 
-	entry_point(id);
+	res = -1;
+	res = entry_point(id);
 
-	fprintf(stderr, "%s: reached its end!\n", __func__);
+	fprintf(stderr, "%s: reached its end: %d!\n", __func__, res);
 	/* not reached */
 	return 0;
 }
@@ -312,13 +315,20 @@ static int __reg_compelem(void *idxs)
 	id = *((int*) idxs);
 	func = *((ums_function*) (idxs + sizeof(int)));
 
-	free(buff);
+	free(idxs);
 
 	// fprintf(stderr, "Registering new compelem to complist %d\n", id);
 
 	res = create_ums_compelem(&id);
 
+	fprintf(stderr, "I am going to execute func!\n");
 	func(id);
+	/* TODO: does it make sense to put the id? */
+	fprintf(stderr, "Calling delete_compelem\n");
+	delete_compelem(id);
+	/* TODO: do delete the stack! */
+	UmsThreadYield();
+
 	if (res) {
 		fprintf(stderr, "Error creating new compelem!\n");
 	}
