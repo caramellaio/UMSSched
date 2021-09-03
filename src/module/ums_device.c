@@ -105,7 +105,7 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 
 		in_buf = kmalloc(sizeof(ums_complist_id), GFP_KERNEL);
 
-		if (copy_from_user(in_buf, (void*)data, sizeof(in_buf)))
+		if (copy_from_user(in_buf, (void*)data, sizeof(int)))
 			return FAILURE;
 
 		complist = *in_buf;
