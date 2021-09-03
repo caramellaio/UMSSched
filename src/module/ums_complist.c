@@ -226,9 +226,11 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 	if (! compelem)
 		return -1;
 
-	memcpy(compelem->elem_task, current_pt_regs(), sizeof(struct pt_regs));
+	get_ums_context(current, &compelem->entry_ctx);
 
 	__register_compelem(compelem->complist, compelem);
+
+	compelem->host_id = COMPELEM_NO_HOST;
 
 	return 0;
 }
@@ -267,15 +269,15 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 	}	
 
 
-	printk("Freed stuff\n");
-
 	kfree(compelem->reserve_head);
 
 	/* Add set running macro */
 	compelem->reserve_head = NULL;
-	// compelem->
 
-	memcpy(current_pt_regs(), task_pt_regs(compelem->elem_task), sizeof(struct pt_regs));
+	printk("calling execution context switch from %d:\n", current->pid);
+	__dump_pt_regs(task_pt_regs(current));
+
+	put_ums_context(current, &compelem->entry_ctx);
 	printk("%s: setted pt_regs!\n", __func__);
 
 	printk("Exit %s", __func__);
@@ -346,6 +348,12 @@ static int new_compelement(ums_compelem_id elem_id,
 
 	hash_add(ums_compelem_hash, &comp_elem->list, comp_elem->id);
 	list_add(&comp_elem->complist_head, &complist->compelems);
+
+	gen_ums_context(current, &comp_elem->entry_ctx);
+	
+	printk(KERN_DEBUG "ums_compelem %d context:\n", elem_id);
+
+	dump_pt_regs(comp_elem->entry_ctx);
 
 	return 0;
 }
