@@ -147,14 +147,17 @@ int ums_sched_yield(void)
 	if (unlikely(! worker))
 		return -1;
 
-	// worker = get_worker(sched);
+	if (! worker->current_elem)
+		/* Yield triggered by an entry_point function is an NOP operation */
+		return 0;
 
-	/* save compelem state if necessary */
-	if (worker->current_elem)
-		ums_compelem_store_reg(worker->current_elem);
+
+	/* save compelem state */
+	ums_compelem_store_reg(worker->current_elem);
 	
 	/* set current to entry_point */
 	worker->current_elem = 0;
+
 	put_ums_context(current, &worker->entry_ctx);
 
 	return 0;
