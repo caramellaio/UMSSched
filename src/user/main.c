@@ -21,20 +21,20 @@ int main(void) {
 	ums_sched_id sched_id;
 	ums_complist_id complist_id;
 
-	ums_function funcs[3] = {
-		incr_c,
-		decr_c,
+	ums_function funcs[1] = {
 		mult_c
 	};
 
-	CreateUmsCompletionList(&complist_id, funcs, 3);
-	
+	if (CreateUmsCompletionList(&complist_id, funcs, 1)) {
+		fprintf(stderr, "Fail creating complist\n");
+		return -1;
+	}
+
+	fprintf(stderr, "Completion list: %d\n", complist_id);
+
 	EnterUmsSchedulingMode(entry_point, complist_id, &sched_id);
 
 	getchar();
-
-	fprintf(stderr, "Final value of c: %d\n", c);
-
 	return err;
 }
 
@@ -46,9 +46,6 @@ static int incr_c(int ums_sched)
 	sleep(1);
 	
 
-	/* It is not sched! */
-	UmsThreadYield();
-
 	return c;
 }
 
@@ -59,8 +56,6 @@ static int decr_c(int ums_sched)
 	c--;
 	sleep(1);
 
-	UmsThreadYield();
-
 	return c;
 }
 
@@ -70,8 +65,6 @@ static int mult_c(int ums_sched)
 	fprintf(stderr, "multiplying c\n");
 	c*=c;
 	sleep(1);
-
-	UmsThreadYield();
 
 	return c;
 }
@@ -84,13 +77,17 @@ static int entry_point(int ums_sched)
 
 	fprintf(stderr, "entry_point: \n");
 
+	res = UmsThreadYield();
+	fprintf(stderr, "entry_point2: \n");
+
 	DequeueUmsCompletionListItems(1, shared, &res_len);
-	fprintf(stderr, "compelem to exec: %d\n", shared[0]);
 
 	if (res_len <= 0) {
 		fprintf(stderr, "dequeue failed!!!\n");
 		return -1;
 	}
+
+	fprintf(stderr, "compelem to exec: %d\n", shared[0]);
 
 	if (ExecuteUmsThread(shared[0])) {
 		fprintf(stderr, "exec failed!\n");
@@ -99,5 +96,6 @@ static int entry_point(int ums_sched)
 
 	fprintf(stderr, "end entry_point: \n");
 	index = index % 3;
+
 	return res;
 }
