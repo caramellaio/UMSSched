@@ -36,6 +36,7 @@
 		up(&complist->elem_sem);			\
 	} while (0)
 
+#define COMPELEM_FILE_MODE 0444
 
 static DEFINE_HASHRWLOCK(ums_complist_hash, UMS_COMPLIST_HASH_BITS);
 
@@ -45,6 +46,20 @@ static DEFINE_HASHTABLE(ums_compelem_hash, UMS_COMPELEM_HASH_BITS);
 
 static atomic_t ums_complist_counter = ATOMIC_INIT(0);
 static atomic_t ums_compelem_counter = ATOMIC_INIT(0);
+
+/* procfs */
+static ssize_t compelem_proc_read(struct file *file,
+				  char __user *ubuf, 
+				  size_t count,
+				  loff_t *ppos);
+
+static struct proc_ops ums_compelem_proc_ops =
+{
+	.proc_read = compelem_proc_read,
+};
+
+/* end procfs */
+
 
 static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
@@ -418,6 +433,8 @@ static int new_compelement(ums_compelem_id elem_id,
 			   struct ums_complist *complist,
 			   struct ums_compelem *comp_elem)
 {
+	char file_name[32];
+
 	comp_elem->id = elem_id;
 	comp_elem->elem_task = current;
 	comp_elem->complist = complist;
@@ -433,7 +450,40 @@ static int new_compelement(ums_compelem_id elem_id,
 
 	dump_pt_regs(comp_elem->entry_ctx);
 
+	sprintf(file_name, "%d", comp_elem->id);
+
+	/* procfs initialization */
+	comp_elem->proc_file = proc_create_data(file_name,
+						COMPELEM_FILE_MODE,
+						complist->proc_dir,
+						&ums_compelem_proc_ops,
+						comp_elem);
 	return 0;
+}
+
+static ssize_t compelem_proc_read(struct file *file,
+				  char __user *ubuf, 
+				  size_t count,
+				  loff_t *ppos)
+{
+        char buf[1024];
+        int len = 0;
+
+        if (*ppos > 0)
+                return 0;
+
+	/* TODO: this is temporary! */
+        len += sprintf(buf, "this is a test proc file, pid=%d\n", current->pid);
+
+	if (len > count)
+		return -EFAULT;
+
+        if (copy_to_user(ubuf, buf, len))
+                return -EFAULT;
+
+        *ppos = len;
+
+        return len;
 }
 
 void __get_from_compelem_id(ums_compelem_id id,

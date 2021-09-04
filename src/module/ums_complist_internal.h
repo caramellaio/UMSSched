@@ -4,6 +4,7 @@
 #include <linux/kfifo.h>
 #include <linux/list.h>
 #include <linux/hashtable.h>
+#include <linux/proc_fs.h>
 #include "ums_complist.h"
 #include "ums_scheduler.h"
 #include "ums_context_switch.h"
@@ -17,6 +18,9 @@ struct ums_complist {
 	struct list_head schedulers;
 
 	struct semaphore elem_sem;
+
+	/* procfs directory */
+	struct proc_dir_entry *proc_dir;
 };
 
 struct ums_compelem {
@@ -40,6 +44,9 @@ struct ums_compelem {
 	struct task_struct* elem_task;
 
 	struct ums_context entry_ctx;
+
+	/* procfs file */
+	struct proc_dir_entry *proc_file;
 };
 
 void __get_from_compelem_id(ums_compelem_id id,

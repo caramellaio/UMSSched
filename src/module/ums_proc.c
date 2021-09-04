@@ -12,14 +12,26 @@ MODULE_AUTHOR("Alberto Bombardelli <albertobombardelli123@gmail.com>");
 #define MODULE_NAME_LOG "ums_proc: "
 
 #define UMS_FOLDER_NAME "ums"
+#define SCHED_FOLDER_NAME "schedulers"
+#define LIST_FOLDER_NAME "workers"
+
 static ssize_t umsproc_read(struct file *file, char __user *ubuf, size_t count, loff_t *offset);
 static ssize_t umsproc_write(struct file *file, const char __user *ubuf, size_t count, loff_t *offset);
 
 static struct proc_dir_entry *ums_proc_dir;
+static struct proc_dir_entry *sched_dir;
+static struct proc_dir_entry *complist_dir;
 
 static struct proc_ops pops =
 {
         .proc_read = umsproc_read,
+};
+
+static struct ums_proc_dir {
+	struct proc_dir_entry * entry;
+	struct hlist_node list;
+	int id;
+	void *info;
 };
 
 static int ums_proc_init(void)
@@ -28,6 +40,7 @@ static int ums_proc_init(void)
 
 	ums_proc_dir = proc_mkdir(UMS_FOLDER_NAME, NULL);
 
+	sched_dir = proc_mkdir(SCHED_FOLDER_NAME, ums_proc_dir);
         printk(KERN_DEBUG MODULE_NAME_LOG "created %s proc folder", 
 	       UMS_FOLDER_NAME);
         return 0;

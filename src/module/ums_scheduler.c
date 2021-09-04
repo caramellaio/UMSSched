@@ -14,12 +14,26 @@
 
 #define get_worker(sched) (*get_cpu_ptr(sched->workers))
 
+#define WORKER_INFO_FILE "info"
+#define WORKER_FILE_MODE 0444
+
 static DEFINE_HASHRWLOCK(ums_sched_hash, UMS_SCHED_HASH_BITS);
 
 /* get a `ums_sched_worker` from its pid */
 static DEFINE_HASHTABLE(ums_sched_worker_hash, UMS_SCHED_HASH_BITS);
 
 static atomic_t ums_sched_counter = ATOMIC_INIT(0);
+
+/* procfs */
+static ssize_t sched_worker_proc_read(struct file *file,
+				     char __user *ubuf, 
+				     size_t count,
+				     loff_t *ppos);
+
+static struct proc_ops ums_sched_worker_proc_ops =
+{
+	.proc_read = sched_worker_proc_read,
+};
 
 static void init_ums_scheduler(struct ums_scheduler* sched, 
 			       ums_sched_id id,
@@ -53,6 +67,7 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id)
 {
+	char dir_name[32];
 	int res = 0, try_res = 0, iter = 0;
 	struct ums_sched_worker *worker = NULL;
 	struct ums_scheduler* sched;
@@ -78,11 +93,8 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 			goto register_thread_exit;
 		}
 
-
 		worker = get_worker(sched);
 
-
-		printk(KERN_ERR "worker pid: %d, current cpu: %d", current->pid, task_cpu(current));
 		/* Error: already registered */
 		if (worker->worker) {
 			res = -2; 
@@ -93,13 +105,23 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 		worker->owner = sched;
 		worker->worker = current;
 
-		printk("get_ums_context");
-
 		gen_ums_context(current, &worker->entry_ctx);
-		printk("end get_ums_context");
 		put_cpu_ptr(sched->workers);
 
 		hash_add(ums_sched_worker_hash, &worker->list, worker->worker->pid);
+
+		/* generate proc dir name */
+		sprintf(dir_name, "%d", get_cpu());
+
+		/* create proc directory */
+		worker->proc_dir = proc_mkdir(dir_name, 
+					      sched->proc_dir);
+		/* create proc file */
+		worker->proc_info_file = proc_create_data(WORKER_INFO_FILE,
+							  WORKER_FILE_MODE,
+							  worker->proc_dir,
+							  &ums_sched_worker_proc_ops,
+							  worker);
 	}
 
 	if (! try_res)
@@ -310,6 +332,31 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 
 		kfree(wait);
 	}
+}
+
+static ssize_t sched_worker_proc_read(struct file *file,
+				      char __user *ubuf, 
+				      size_t count,
+				      loff_t *ppos)
+{
+        char buf[1024];
+        int len = 0;
+
+        if (*ppos > 0)
+                return 0;
+
+	/* TODO: this is temporary! */
+        len += sprintf(buf, "this is a test proc file, pid=%d\n", current->pid);
+
+	if (len > count)
+		return -EFAULT;
+
+        if (copy_to_user(ubuf, buf, len))
+                return -EFAULT;
+
+        *ppos = len;
+
+        return len;
 }
 
 static void get_worker_by_current(struct ums_sched_worker **worker)

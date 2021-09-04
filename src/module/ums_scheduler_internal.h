@@ -7,6 +7,7 @@
 
 #include <linux/hashtable.h>
 #include <linux/list.h>
+#include <linux/proc_fs.h>
 
 struct ums_sched_worker {
 	struct ums_scheduler *owner;
@@ -16,6 +17,12 @@ struct ums_sched_worker {
 
 	struct task_struct *worker;
 	struct ums_context entry_ctx;
+
+	/* procfs directory */
+	struct proc_dir_entry			*proc_dir;
+
+	/* info file */
+	struct proc_dir_entry			*proc_info_file;
 };
 
 struct ums_scheduler {
@@ -30,6 +37,9 @@ struct ums_scheduler {
 
 	/* completion list has also a list of affiliated schedulers */
 	struct list_head			complist_head;
+
+	/* procfs directory */
+	struct proc_dir_entry			*proc_dir;
 };
 
 struct ums_sched_wait {
