@@ -37,6 +37,7 @@
 	} while (0)
 
 #define COMPELEM_FILE_MODE 0444
+#define COMPLIST_DIR_NAME "completion_lists"
 
 static DEFINE_HASHRWLOCK(ums_complist_hash, UMS_COMPLIST_HASH_BITS);
 
@@ -48,6 +49,8 @@ static atomic_t ums_complist_counter = ATOMIC_INIT(0);
 static atomic_t ums_compelem_counter = ATOMIC_INIT(0);
 
 /* procfs */
+static struct proc_dir_entry *ums_complist_dir = NULL;
+
 static ssize_t compelem_proc_read(struct file *file,
 				  char __user *ubuf, 
 				  size_t count,
@@ -233,6 +236,13 @@ int ums_complist_init(void)
 	hash_init(ums_compelem_hash);
 
 	return 0;
+}
+
+int ums_complist_proc_init(struct proc_dir_entry *ums_dir)
+{
+	ums_complist_dir = proc_mkdir(COMPLIST_DIR_NAME, ums_dir);
+
+	return !ums_complist_dir;
 }
 
 int ums_complist_reserve(ums_complist_id comp_id,

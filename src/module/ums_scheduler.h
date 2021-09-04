@@ -4,13 +4,14 @@
 typedef int ums_sched_id;
 
 #include "ums_complist.h"
+#include <linux/proc_fs.h>
 
 /* 256 buckets should be more than enought */
 #define UMS_SCHED_HASH_BITS 8
-/* TODO: Choose the type considering the constraints given by atomic_t */
-
 
 int ums_sched_init(void);
+
+int ums_sched_proc_init(struct proc_dir_entry *ums_dir);
 
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier);
 

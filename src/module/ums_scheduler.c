@@ -16,6 +16,7 @@
 
 #define WORKER_INFO_FILE "info"
 #define WORKER_FILE_MODE 0444
+#define SCHEDULER_DIR_NAME "schedulers"
 
 static DEFINE_HASHRWLOCK(ums_sched_hash, UMS_SCHED_HASH_BITS);
 
@@ -34,6 +35,8 @@ static struct proc_ops ums_sched_worker_proc_ops =
 {
 	.proc_read = sched_worker_proc_read,
 };
+
+static struct proc_dir_entry *ums_scheduler_dir_entry = NULL;
 
 static void init_ums_scheduler(struct ums_scheduler* sched, 
 			       ums_sched_id id,
@@ -257,6 +260,13 @@ int ums_sched_init(void)
 	hashrwlock_init(ums_sched_hash);
 	hash_init(ums_sched_worker_hash);
 	return 0;
+}
+
+int ums_sched_proc_init(struct proc_dir_entry *ums_dir)
+{
+	ums_scheduler_dir_entry = proc_mkdir(SCHEDULER_DIR_NAME, ums_dir);
+
+	return ! ums_scheduler_dir_entry;
 }
 
 void ums_sched_cleanup(void)

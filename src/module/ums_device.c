@@ -13,6 +13,7 @@
 #include "ums_device.h"
 #include "ums_scheduler.h"
 #include "ums_complist.h"
+#include "ums_proc.h"
 /* TODO: Move ums requests in another file */
 #include "../shared/ums_request.h"
 
@@ -56,11 +57,27 @@ int init_module(void)
 		return ret;
 	}
 
+	ret = ums_proc_init();
+
+	if (ret) {
+		printk(KERN_ALERT MODULE_NAME_LOG
+		       "Initialization of sub-module ums_proc failed!\n");
+		return ret;
+	}
+
 	ret = ums_sched_init();
 
 	if (ret) {
 		printk(KERN_ALERT MODULE_NAME_LOG
 		       "Initialization of sub-module ums_sched failed!\n");
+		return ret;
+	}
+
+	ret = ums_sched_proc_init(ums_proc_root());
+
+	if (ret) {
+		printk(KERN_ALERT MODULE_NAME_LOG
+		       "Initialization of sub-module ums_sched_proc failed!\n");
 		return ret;
 	}
 
@@ -71,6 +88,15 @@ int init_module(void)
 		       "Initialization of sub-module ums_complist failed!\n");
 		return ret;
 	}
+
+	ret = ums_complist_proc_init(ums_proc_root());
+
+	if (ret) {
+		printk(KERN_ALERT MODULE_NAME_LOG
+		       "Initialization of sub-module ums_sched_proc failed!\n");
+		return ret;
+	}
+
 	printk(KERN_DEBUG MODULE_NAME_LOG "Device registered successfully\n");
 
 	return SUCCESS;
