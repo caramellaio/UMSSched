@@ -65,6 +65,11 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 		goto register_thread_exit;
 	}
 
+	if (! lock->data) {
+		res = -1;
+		goto register_thread_exit;
+	}
+
 	id_read_trylock_region(lock, iter, try_res) {
 		sched = lock->data;
 
@@ -116,6 +121,9 @@ int ums_sched_wait(ums_sched_id sched_id)
 	if (! lock)
 		return -1;
 
+	if (! lock->data)
+		return -1;
+
 	/* TODO: this kmalloc is non-sense */
 	id_read_trylock_region(lock, iter, res) {
 		sched = lock->data;
@@ -137,19 +145,27 @@ int ums_sched_wait(ums_sched_id sched_id)
 int ums_sched_remove(ums_sched_id id)
 {
 	int iter;
-	struct ums_scheduler *sched;
 	struct id_rwlock *lock;
+	struct ums_scheduler *sched;
 
 	hashrwlock_find(ums_sched_hash, id, &lock);
+
 	if (! lock)
 		return -1;
 
-	id_write_lock_region(lock, iter)
+	if (!lock->data)
+		return -1;
+
+	id_write_lock_region(lock, iter) {
+		sched = lock->data;
 		deinit_ums_scheduler(sched);
+		lock->data = NULL;
+		hashrwlock_remove(lock);
+	}
 
 	kfree(sched);
+	/* TODO: add rwlock to reclaim list!!! */
 	
-	/* TODO: remove id_rwlock! */
 	return 0;
 }
 

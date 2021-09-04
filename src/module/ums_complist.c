@@ -104,9 +104,14 @@ int ums_complist_add_scheduler(ums_complist_id id,
 	if (! lock)
 		return -1;
 
+	if (! lock->data)
+		return -1;
+
 	complist = lock->data;
 
+	/* TODO: is this safe? */
 	id_read_trylock_region(lock, iter, res) {
+		/* TODO: add list spinlock! */
 		list_add(sched_list, &complist->schedulers);
 	}
 
@@ -122,6 +127,9 @@ int ums_complist_remove(ums_complist_id id)
 	hashrwlock_find(ums_complist_hash, id, &lock);
 
 	if (! lock)
+		return -1;
+
+	if (! lock->data)
 		return -1;
 
 	id_write_lock_region(lock, iter)
@@ -195,7 +203,6 @@ int ums_compelem_remove(ums_compelem_id id)
 	}
 
 	/* remove from the list, if list is empty delete complist! */
-	/* TODO: check for async */
 	list_del(&compelem->complist_head);
 
 	if (list_empty(&compelem->complist->compelems))
@@ -235,6 +242,9 @@ int ums_complist_reserve(ums_complist_id comp_id,
 	hashrwlock_find(ums_complist_hash, comp_id, &lock);
 
 	if (! lock)
+		return -1;
+
+	if (! lock->data)
 		return -1;
 
 	if (! id_read_trylock(lock))
@@ -326,6 +336,8 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 		return -1;
 
 	/* release the other reserved compelems */
+	/* By construction this function can be accessed only by one at the 
+	 * same time */
 	list_for_each_safe(list_iter, temp_head, compelem->reserve_head) {
 		struct ums_compelem *to_release;
 
@@ -384,12 +396,12 @@ new_complist_exit:
 static int delete_complist(struct ums_complist *complist)
 {
 	struct list_head *iter, *safeiter;
-	/* TODO: writelock() */
-
-	hash_del(&complist->list);
 
 	kfifo_free(&complist->ready_queue);
 
+	/* TODO: we are assuming that complist is empty: ensure that */
+
+	/* isolation is granted by already in use write_lock */
 	list_for_each_safe(iter, safeiter, &complist->schedulers) {
 		struct ums_scheduler *sched;
 
