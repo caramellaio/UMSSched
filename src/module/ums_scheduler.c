@@ -3,6 +3,7 @@
 #include "ums_complist.h"
 #include "ums_complist_internal.h"
 #include "ums_context_switch.h"
+#include "id_rwlock.h"
 
 #include <linux/slab.h>
 #include <linux/percpu.h>
@@ -13,7 +14,7 @@
 
 #define get_worker(sched) (*get_cpu_ptr(sched->workers))
 
-static DEFINE_HASHTABLE(ums_sched_hash, UMS_SCHED_HASH_BITS);
+static DEFINE_HASHRWLOCK(ums_sched_hash, UMS_SCHED_HASH_BITS);
 
 /* get a `ums_sched_worker` from its pid */
 static DEFINE_HASHTABLE(ums_sched_worker_hash, UMS_SCHED_HASH_BITS);
@@ -37,6 +38,7 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 	struct ums_scheduler* ums_sched = NULL;
 	struct ums_complist * complist = NULL;
 
+	/* use locking systems */
 	__get_from_complist_id(comp_list_id, &complist);
        	
 	if (! complist) {
@@ -50,48 +52,60 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 
 	init_ums_scheduler(ums_sched, *identifier, comp_list_id);
 	
-	/* TODO: add complist reader lock */
 	__complist_add_sched(complist, &ums_sched->complist_head);
+	/* TODO: add complist reader lock */
 	return 0;
 }
 
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id)
 {
-	int res = 0;
+	int res = 0, try_res = 0, iter = 0;
 	struct ums_sched_worker *worker = NULL;
 	struct ums_scheduler* sched;
+	struct id_rwlock *lock;
 
-       	get_sched_by_id(sched_id, &sched);
+	hashrwlock_find(ums_sched_hash, sched_id, &lock);
 
-	if (unlikely(!sched)) {
+	if (! lock) {
 		res = -1;
 		goto register_thread_exit;
 	}
 
+	id_read_trylock_region(lock, iter, try_res) {
+		sched = lock->data;
 
-	worker = get_worker(sched);
+		if (unlikely(!sched)) {
+			res = -1;
+			goto register_thread_exit;
+		}
 
 
-	printk(KERN_ERR "worker pid: %d, current cpu: %d", current->pid, task_cpu(current));
-	/* Error: already registered */
-	if (worker->worker) {
-		res = -2; 
-		goto register_thread_exit;
+		worker = get_worker(sched);
+
+
+		printk(KERN_ERR "worker pid: %d, current cpu: %d", current->pid, task_cpu(current));
+		/* Error: already registered */
+		if (worker->worker) {
+			res = -2; 
+			goto register_thread_exit;
+		}
+
+		/* set cpu var to current. */
+		worker->owner = sched;
+		worker->worker = current;
+
+		printk("get_ums_context");
+
+		gen_ums_context(current, &worker->entry_ctx);
+		printk("end get_ums_context");
+		put_cpu_ptr(sched->workers);
+
+		hash_add(ums_sched_worker_hash, &worker->list, worker->worker->pid);
 	}
 
-	/* set cpu var to current. */
-	worker->owner = sched;
-	worker->worker = current;
-
-	printk("get_ums_context");
-
-	gen_ums_context(current, &worker->entry_ctx);
-	printk("end get_ums_context");
-	put_cpu_ptr(sched->workers);
-
-	hash_add(ums_sched_worker_hash, &worker->list, worker->worker->pid);
-
+	if (! try_res)
+		res = -1;
 register_thread_exit:
 
 	return res;
@@ -99,42 +113,52 @@ register_thread_exit:
 
 int ums_sched_wait(ums_sched_id sched_id)
 {
+	int res, iter;
 	struct ums_scheduler *sched;
 	struct ums_sched_wait *wait;
+	struct id_rwlock *lock;
 
-	get_sched_by_id(sched_id, &sched);
+	hashrwlock_find(ums_sched_hash, sched_id, &lock);
 
-	if (! sched)
+	if (! lock)
 		return -1;
 
 	/* TODO: this kmalloc is non-sense */
-	wait = kmalloc(sizeof(struct ums_sched_wait), GFP_KERNEL);
+	id_read_trylock_region(lock, iter, res) {
+		sched = lock->data;
+		wait = kmalloc(sizeof(struct ums_sched_wait), GFP_KERNEL);
 
-	if (! wait)
-		return -1;
+		if (! wait)
+			return -1;
 
-	wait->task = current;
-	list_add(&wait->list, &sched->wait_procs);
+		wait->task = current;
+		list_add(&wait->list, &sched->wait_procs);
 
-	set_current_state(TASK_INTERRUPTIBLE);
-	schedule();
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+	}
 
-	return 0;
+	return !res;
 }
 
 int ums_sched_remove(ums_sched_id id)
 {
+	int iter;
 	struct ums_scheduler *sched;
+	struct id_rwlock *lock;
 
-	get_sched_by_id(id, &sched);
+	// get_sched_by_id(id, &sched);
 
-	if (! sched)
+	hashrwlock_find(ums_sched_hash, id, &lock);
+	if (! lock)
 		return -1;
 
-	deinit_ums_scheduler(sched);
+	id_write_lock_region(lock, iter)
+		deinit_ums_scheduler(sched);
 
 	kfree(sched);
 	
+	/* TODO: remove id_rwlock! */
 	return 0;
 }
 
@@ -201,7 +225,8 @@ int ums_sched_complist_by_current(ums_complist_id *res_id)
 
 int ums_sched_init(void)
 {
-	hash_init(ums_sched_hash);
+	hashrwlock_init(ums_sched_hash);
+	/* TODO: check if rwlock is needed for worker hash */
 	hash_init(ums_sched_worker_hash);
 	return 0;
 }
@@ -216,12 +241,20 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 			       ums_complist_id comp_id) 
 {
 	int cpu;
+	struct id_rwlock *lock;
+
+	lock = kmalloc(sizeof(struct id_rwlock), GFP_KERNEL);
+
+	id_rwlock_init(id, sched, lock);
 
 	sched->id = id;
 	sched->comp_id = comp_id;
 
-	/* entries are unique, no need for locks */
-	hash_add(ums_sched_hash, &sched->list, sched->id);
+	if (id_write_trylock(lock))
+		/* TODO: check if I really need to handle this */
+		printk(KERN_ERR "Expecting lock to be free!\n");
+
+	hashrwlock_add(ums_sched_hash, lock);
 
 	sched->workers = alloc_percpu(struct ums_sched_worker*);
 
@@ -235,10 +268,12 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	}
 
 	INIT_LIST_HEAD(&sched->wait_procs);
+	id_write_unlock(lock);
 }
 
 static void deinit_ums_scheduler(struct ums_scheduler* sched)
 {
+	/* TODO: adapt */
 	struct list_head *list_iter;
 	struct list_head *safe_temp;
 	int cpu;
@@ -274,6 +309,7 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 	}
 }
 
+#if 0
 static void get_sched_by_id(ums_sched_id id, 
 			    struct ums_scheduler** sched)
 {
@@ -283,6 +319,7 @@ static void get_sched_by_id(ums_sched_id id,
 		if ((*sched)->id == id) break;
 	}
 }
+#endif
 
 static void get_worker_by_current(struct ums_sched_worker **worker)
 {

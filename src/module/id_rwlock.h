@@ -75,6 +75,6 @@ struct id_rwlock {
 #define id_write_lock_region(lock, iter)				\
 	for (iter = 0, id_write_lock(lock);				\
 	     iter < 1;							\
-	     i++, id_write_unlock(lock))
+	     iter++, id_write_unlock(lock))
 
 #endif /* __ID_RWLOCK_H__ */
