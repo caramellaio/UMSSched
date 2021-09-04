@@ -12,43 +12,69 @@ struct id_rwlock {
 };
 
 #define DEFINE_HASHRWLOCK(name, bits)					\
-	(DEFINE_HASHTABLE(name, bits))
+	DEFINE_HASHTABLE(name, bits)
 
-#define init_hashrwlock(table)						\
+#define hashrwlock_init(table)						\
 	(hash_init(table))
 
-#define add_id_rwlock(hash_lock, lock)					\
-	(hash_add_rcu((hash_lock), (lock)->list, (lock)->id))
+#define hashrwlock_add(hash_lock, lock)					\
+	(hash_add_rcu((hash_lock), &(lock)->list, (lock)->id))
 
-#define find_id_rwlock(hash_lock, id, lock_ref)				\
+#define hashrwlock_find(hash_lock, _id, lock_ref)			\
 	do {								\
 		*(lock_ref) = NULL;					\
 		hash_for_each_possible_rcu((hash_lock), *(lock_ref),	\
-					   list, id) {			\
-			if ((*(lock_ref))->id == id) break;		\
+					   list, _id) {			\
+			if ((*(lock_ref))->id == _id) break;		\
 		}							\
 	} while (0)
 
-#define remove_id_rwlock(lock_ref)					\
-	(hash_del_rcu((lock_ref)->list))
+#define hashrwlock_remove(lock_ref)					\
+	(hash_del_rcu(&(lock_ref)->list))
 
-#define init_id_rwlock(id, data, lock)					\
+#define id_rwlock_init(_id, _data, _lock)				\
 	do {								\
-		(lock)->id = id;					\
-		(lock)->data = data;					\
-		rwlock_init(&(lock)->lock;				\
+		(_lock)->id = _id;					\
+		(_lock)->data = _data;					\
+		rwlock_init(&(_lock)->lock);				\
 	} while (0)
 
-#define id_rwlock_read(lock)						\
-	(read_lock((lock)->lock))
+#define id_read_lock(lock)						\
+	(read_lock(&(lock)->lock))
 
-#define id_rwlock_tryread(lock)						\
-	(read_trylock((lock)->lock))
+#define id_read_trylock(lock)						\
+	(read_trylock(&(lock)->lock))
 
-#define id_rwlock_write(lock)						\
-	(write_lock((lock)->lock))
+#define id_read_unlock(lock)						\
+	(read_unlock(&(lock)->lock))
 
-#define id_rwlock_trywrite(lock)					\
-	(write_trylock((lock)->lock))
+#define id_write_lock(lock)						\
+	(write_lock(&(lock)->lock))
+
+#define id_write_trylock(lock)						\
+	(write_trylock(&(lock)->lock))
+
+#define id_write_unlock(lock)						\
+	(write_unlock(&(lock)->lock))
+
+#define id_read_trylock_region(lock, iter, res)				\
+	for (iter = 0, res = id_read_trylock(lock);			\
+	     res && iter < 1;						\
+	     iter++, id_read_unlock(lock))
+
+#define id_read_lock_region(lock, iter)					\
+	for (iter = 0, id_read_lock(lock);				\
+	     iter < 1;							\
+	     iter++, id_read_unlock(lock))	
+
+#define id_write_trylock_region(lock, iter, res)			\
+	for (iter = 0, res = id_write_trylock(lock);			\
+	     res && iter < 1;						\
+	     iter++, id_write_unlock(lock))
+
+#define id_write_lock_region(lock, iter)				\
+	for (iter = 0, id_write_lock(lock);				\
+	     iter < 1;							\
+	     i++, id_write_unlock(lock))
 
 #endif /* __ID_RWLOCK_H__ */
