@@ -233,7 +233,6 @@ int ums_sched_complist_by_current(ums_complist_id *res_id)
 int ums_sched_init(void)
 {
 	hashrwlock_init(ums_sched_hash);
-	/* TODO: check if rwlock is needed for worker hash */
 	hash_init(ums_sched_worker_hash);
 	return 0;
 }
@@ -280,7 +279,6 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 
 static void deinit_ums_scheduler(struct ums_scheduler* sched)
 {
-	/* TODO: adapt */
 	struct list_head *list_iter;
 	struct list_head *safe_temp;
 	int cpu;
@@ -288,14 +286,12 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 	sched->id = -1;
 	sched->comp_id = -1;
 
-	hash_del(&sched->list);
-
 	/* kill all the workers */
 	for_each_possible_cpu(cpu) {
 		struct ums_sched_worker *worker = *per_cpu_ptr(sched->workers, cpu);
 
 		/* TODO: handle signals to safely die */
-		send_sig(SIGKILL, worker->worker, 0);
+		send_sig(SIGINT, worker->worker, 0);
 
 		// TODO: set completion element status as `free`
 	}

@@ -135,7 +135,6 @@ int ums_complist_remove(ums_complist_id id)
 	id_write_lock_region(lock, iter)
 		delete_complist(complist);
 
-	/* TODO: setup id_rwlock */
 	return 0;
 }
 
@@ -218,7 +217,6 @@ int ums_complist_init(void)
 	hash_init(ums_complist_hash);
 	hash_init(ums_compelem_hash);
 
-	/* TODO: check hash_init retval */
 	return 0;
 }
 
