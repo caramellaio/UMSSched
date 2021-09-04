@@ -118,7 +118,6 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		if (err)
 			return FAILURE;
 			
-
 		if (copy_to_user((void*)data, &result, sizeof(int))) {
 			printk(KERN_ERR MODULE_NAME_LOG "ums_sched id copy_to_user failed!");
 			return FAILURE;

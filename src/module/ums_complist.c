@@ -2,7 +2,7 @@
 #include "ums_complist_internal.h"
 /* Only for delete part */
 #include "ums_scheduler_internal.h"
-
+#include "id_rwlock.h"
 #include "ums_scheduler.h"
 
 #include <linux/kfifo.h>
@@ -37,7 +37,10 @@
 	} while (0)
 
 
-static DEFINE_HASHTABLE(ums_complist_hash, UMS_COMPLIST_HASH_BITS);
+static DEFINE_HASHRWLOCK(ums_complist_hash, UMS_COMPLIST_HASH_BITS);
+
+/* Completion element is always own by a single element (worker),
+ * For that case we do not need rwlock */
 static DEFINE_HASHTABLE(ums_compelem_hash, UMS_COMPELEM_HASH_BITS);
 
 static atomic_t ums_complist_counter = ATOMIC_INIT(0);
@@ -62,6 +65,7 @@ int ums_complist_add(ums_complist_id *result)
 {
 	int res;
 	struct ums_complist* ums_complist;
+	struct id_rwlock *lock;
 
 	*result = atomic_inc_return(&ums_complist_counter);
 
@@ -74,8 +78,36 @@ int ums_complist_add(ums_complist_id *result)
 
 	res = new_complist(*result, ums_complist);
 
+
 	if (res) {
 		kfree(ums_complist);
+	}
+
+	lock = kmalloc(sizeof(struct id_rwlock), GFP_KERNEL);
+	id_rwlock_init(*result, ums_complist, lock);
+
+	hashrwlock_add(ums_complist_hash, lock);
+
+	return res;
+}
+
+int ums_complist_add_scheduler(ums_complist_id id, 
+			       struct list_head *sched_list)
+{
+	int res;
+	int iter;
+	struct id_rwlock *lock;
+	struct ums_complist *complist;
+
+	hashrwlock_find(ums_complist_hash, id, &lock);
+
+	if (! lock)
+		return -1;
+
+	complist = lock->data;
+
+	id_read_trylock_region(lock, iter, res) {
+		list_add(sched_list, &complist->schedulers);
 	}
 
 	return res;
@@ -83,14 +115,19 @@ int ums_complist_add(ums_complist_id *result)
 
 int ums_complist_remove(ums_complist_id id)
 {
+	int iter;
 	struct ums_complist *complist;
-	__get_from_complist_id(id, &complist);
+	struct id_rwlock *lock;
 
-	if (! complist)
+	hashrwlock_find(ums_complist_hash, id, &lock);
+
+	if (! lock)
 		return -1;
 
-	delete_complist(complist);
+	id_write_lock_region(lock, iter)
+		delete_complist(complist);
 
+	/* TODO: setup id_rwlock */
 	return 0;
 }
 
@@ -99,25 +136,39 @@ int ums_compelem_add(ums_compelem_id* result,
 {
 	struct ums_compelem *compelem;
 	struct ums_complist *complist;
+	struct id_rwlock *lock;
+	int iter, locked;
 	int res = 0;
 
 	*result = atomic_inc_return(&ums_compelem_counter);
 
-	__get_from_complist_id(list_id, &complist);
+	hashrwlock_find(ums_complist_hash, list_id, &lock);
 
-	if (! complist) {
+	if (! lock) {
 		printk(KERN_DEBUG "Complist %d not found!\n", list_id);
 		return -1;
 	}
 
-	compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
-
-	if (! compelem) 
+	if (! lock->data) {
+		printk(KERN_DEBUG "Complist %d has been deleted!\n", list_id);
 		return -1;
+	}
 
-	res = new_compelement(*result, complist, compelem);
+	id_read_trylock_region(lock, iter, locked) {
+		complist = lock->data;
+		compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
 
-	__register_compelem(complist, compelem);
+		if (! compelem) 
+			return -1;
+
+		res = new_compelement(*result, complist, compelem);
+
+		__register_compelem(complist, compelem);
+	}
+
+	/* lock failed: complist is getting destroyed */
+	if (! locked)
+		return -1;
 
 	/* block completion element */
 	set_current_state(TASK_INTERRUPTIBLE);
@@ -144,6 +195,7 @@ int ums_compelem_remove(ums_compelem_id id)
 	}
 
 	/* remove from the list, if list is empty delete complist! */
+	/* TODO: check for async */
 	list_del(&compelem->complist_head);
 
 	if (list_empty(&compelem->complist->compelems))
@@ -169,33 +221,49 @@ int ums_complist_reserve(ums_complist_id comp_id,
 			 int *size)
 {
 	int i;
+	int res;
 	struct ums_complist *complist;
 	struct ums_compelem *compelem_0;
+	struct id_rwlock *lock;
 	struct list_head *reserve_list;
 
+	res = 0;
 	*size = 0;
 
-	__get_from_complist_id(comp_id, &complist);
+	/* Even if at the moment lock is not necessary for this feature it is 
+	 * better to leave it active */
+	hashrwlock_find(ums_complist_hash, comp_id, &lock);
+
+	if (! lock)
+		return -1;
+
+	if (! id_read_trylock(lock))
+		return -1;
 
 	/* reserve list is destroyed in Execute function by the choosen compelem */
 	reserve_list = kmalloc(sizeof(struct list_head), GFP_KERNEL);
 
-	if (unlikely(! reserve_list))
-		return -2;
+	if (unlikely(! reserve_list)) {
+		res = -2;
+		goto complist_reserve_exit;
+	}
 
 	INIT_LIST_HEAD(reserve_list);
 
-	if (! complist)
-		return -1;
+	if (to_reserve == 0) {
+		res = 0;
+		goto complist_reserve_exit;
+	}
 
-	if (to_reserve == 0)
-		return 0;
+	if (unlikely(reserve_compelem(complist, &compelem_0, reserve_list, 1))) {
+		res = -2;
+		goto complist_reserve_exit;
+	}
 
-	if (unlikely(reserve_compelem(complist, &compelem_0, reserve_list, 1)))
-		return -2;
-
-	if (unlikely(! compelem_0))
-		return -2;
+	if (unlikely(! compelem_0)) {
+		res = -2;
+		goto complist_reserve_exit;
+	}
 
 	ret_array[0] = compelem_0->id;
 
@@ -203,8 +271,10 @@ int ums_complist_reserve(ums_complist_id comp_id,
 		struct ums_compelem *compelem_i = NULL;
 
 		if (unlikely(reserve_compelem(complist, &compelem_i,
-					      reserve_list, 0)))
-			return -2;
+					      reserve_list, 0))) {
+			res = -2;
+			goto complist_reserve_exit;
+		}
 
 		if (! compelem_i)
 			break;
@@ -213,14 +283,15 @@ int ums_complist_reserve(ums_complist_id comp_id,
 
 	*size = i;
 
-	return 0;
+complist_reserve_exit:
+	id_read_unlock(lock);
+	return res;
 }
 
 int ums_compelem_store_reg(ums_compelem_id compelem_id)
 {
 	struct ums_compelem *compelem = NULL;
 
-	/* TODO: reset host_id */
 	__get_from_compelem_id(compelem_id, &compelem);
 
 	if (! compelem)
@@ -287,7 +358,7 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 
 
 static int new_complist(ums_complist_id comp_id,
-			struct ums_complist *complist)
+				struct ums_complist *complist)
 {
 	int res;
 
@@ -305,8 +376,6 @@ static int new_complist(ums_complist_id comp_id,
 
 	INIT_LIST_HEAD(&complist->compelems);
 	INIT_LIST_HEAD(&complist->schedulers);
-
-	hash_add(ums_complist_hash, &complist->list, complist->id);
 
 new_complist_exit:
 	return res;
@@ -327,7 +396,6 @@ static int delete_complist(struct ums_complist *complist)
 		sched = list_entry(iter, struct ums_scheduler, complist_head);
 
 		if (likely(sched))
-			/* TODO: use macro */
 			ums_sched_remove(sched->id);
 	}
 
@@ -356,17 +424,6 @@ static int new_compelement(ums_compelem_id elem_id,
 	dump_pt_regs(comp_elem->entry_ctx);
 
 	return 0;
-}
-
-void __get_from_complist_id(ums_complist_id id,
-	      		    struct ums_complist** complist)
-{
-	*complist = NULL;
-
-	hash_for_each_possible(ums_complist_hash, *complist, list, id) {
-		if ((*complist)->id == id)
-			break;
-	}
 }
 
 void __get_from_compelem_id(ums_compelem_id id,

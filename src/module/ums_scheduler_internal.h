@@ -32,7 +32,6 @@ struct ums_scheduler {
 	struct list_head			complist_head;
 };
 
-
 struct ums_sched_wait {
 	struct task_struct *task;
 	struct list_head list;

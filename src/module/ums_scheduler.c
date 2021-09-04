@@ -27,24 +27,11 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 
 static void deinit_ums_scheduler(struct ums_scheduler* sched);
 
-/* TODO: turn this functions into macros */
-static void get_sched_by_id(ums_sched_id id, 
-			    struct ums_scheduler** sched);
-
 static void get_worker_by_current(struct ums_sched_worker **worker);
 
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 {
 	struct ums_scheduler* ums_sched = NULL;
-	struct ums_complist * complist = NULL;
-
-	/* use locking systems */
-	__get_from_complist_id(comp_list_id, &complist);
-       	
-	if (! complist) {
-		printk("Error in %s: complist %d does not exist", __func__, comp_list_id);
-		return -1;
-	}
 
 	*identifier = atomic_inc_return(&ums_sched_counter);
 
@@ -52,8 +39,14 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 
 	init_ums_scheduler(ums_sched, *identifier, comp_list_id);
 	
-	__complist_add_sched(complist, &ums_sched->complist_head);
-	/* TODO: add complist reader lock */
+	/* This function has 2 important goals:
+	 * check if complist with `comp_list_id` exists
+	 * append the current scheduler entry in the list 
+	*/
+
+	/* TODO: use id instead of list (otherwise mess with locking) */
+	ums_complist_add_scheduler(comp_list_id, &ums_sched->complist_head);
+
 	return 0;
 }
 
@@ -146,8 +139,6 @@ int ums_sched_remove(ums_sched_id id)
 	int iter;
 	struct ums_scheduler *sched;
 	struct id_rwlock *lock;
-
-	// get_sched_by_id(id, &sched);
 
 	hashrwlock_find(ums_sched_hash, id, &lock);
 	if (! lock)
@@ -308,18 +299,6 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 		kfree(wait);
 	}
 }
-
-#if 0
-static void get_sched_by_id(ums_sched_id id, 
-			    struct ums_scheduler** sched)
-{
-	*sched = NULL;
-
-	hash_for_each_possible(ums_sched_hash, *sched, list, id) {
-		if ((*sched)->id == id) break;
-	}
-}
-#endif
 
 static void get_worker_by_current(struct ums_sched_worker **worker)
 {

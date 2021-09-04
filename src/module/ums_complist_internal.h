@@ -8,9 +8,6 @@
 #include "ums_scheduler.h"
 #include "ums_context_switch.h"
 
-#define __complist_add_sched(complist, sched_list_head)			\
-	(list_add(sched_list_head, &complist->schedulers))
-
 struct ums_complist {
 	ums_complist_id id;
 	struct hlist_node list;
@@ -48,6 +45,4 @@ struct ums_compelem {
 void __get_from_compelem_id(ums_compelem_id id,
 	       		    struct ums_compelem** compelem);
 
-void __get_from_complist_id(ums_complist_id id,
-	      		    struct ums_complist** complist);
 #endif /* __UMS_COMPLIST_INTERNAL_H__ */

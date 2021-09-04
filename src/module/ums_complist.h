@@ -4,6 +4,7 @@
 typedef int ums_complist_id;
 typedef int ums_compelem_id;
 #include "ums_scheduler.h"
+#include <linux/list.h>
 
 
 #define UMS_COMPLIST_HASH_BITS 8
@@ -21,6 +22,9 @@ int ums_complist_reserve(ums_complist_id comp_id,
 
 int ums_compelem_add(ums_compelem_id* result,
 		     ums_complist_id list_id);
+
+int ums_complist_add_scheduler(ums_complist_id id, 
+			       struct list_head *sched_list);
 
 int ums_compelem_remove(ums_compelem_id id);
 
