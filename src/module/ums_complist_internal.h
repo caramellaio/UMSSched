@@ -5,6 +5,8 @@
 #include <linux/list.h>
 #include <linux/hashtable.h>
 #include <linux/proc_fs.h>
+#include <linux/spinlock.h>
+
 #include "ums_complist.h"
 #include "ums_scheduler.h"
 #include "ums_context_switch.h"
@@ -13,9 +15,12 @@ struct ums_complist {
 	ums_complist_id id;
 	struct hlist_node list;
 	struct kfifo ready_queue;
+	spinlock_t ready_lock;
 
 	struct list_head compelems;
+	spinlock_t compelems_lock;
 	struct list_head schedulers;
+	spinlock_t schedulers_lock;
 
 	struct semaphore elem_sem;
 

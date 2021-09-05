@@ -32,8 +32,10 @@
 #define __register_compelem(complist, compelem)			\
 	do {							\
 		/* check if lock is necessary for kfifo */	\
-		kfifo_in(&(complist)->ready_queue,		\
-			 &(compelem), sizeof(compelem));	\
+		kfifo_in_spinlocked(&(complist)->ready_queue,	\
+				    &(compelem),		\
+				    sizeof(compelem),		\
+				    &(complist)->ready_lock);	\
 		up(&complist->elem_sem);			\
 	} while (0)
 
@@ -246,14 +248,21 @@ int ums_compelem_remove(ums_compelem_id id)
 			kfree(compelem->reserve_head);
 	}
 
+
+	printk(KERN_DEBUG "Delete compelem %d proc file", id);
+
+	/* critical list region */
+	spin_lock(&compelem->complist->compelems_lock);
+
 	/* remove from the list, if list is empty delete complist! */
 	list_del(&compelem->complist_head);
 
-	printk(KERN_DEBUG "Delete compelem %d proc file", id);
-	ums_proc_delete(compelem->proc_file);
-
 	if (list_empty(&compelem->complist->compelems))
 		delete_complist(compelem->complist);
+
+	spin_unlock(&compelem->complist->compelems_lock);
+
+	ums_proc_delete(compelem->proc_file);
 
 	wake_up_process(compelem->elem_task);
 	kfree(compelem);
@@ -460,6 +469,9 @@ static int new_complist(ums_complist_id comp_id,
 	INIT_LIST_HEAD(&complist->compelems);
 	INIT_LIST_HEAD(&complist->schedulers);
 
+	spin_lock_init(&complist->ready_lock);
+	spin_lock_init(&complist->schedulers_lock);
+	spin_lock_init(&complist->compelems_lock);
 	/* init proc directory */
 	ums_proc_geniddir(complist->id, ums_complist_dir, &complist->proc_dir);
 
@@ -592,10 +604,9 @@ static int reserve_compelem(struct ums_complist *complist,
 			return 0;
 	}
 
-	/* TODO: use lock */
-	/* TODO: assert result */
-	if (! kfifo_out(&complist->ready_queue, compelem, 
-			sizeof(struct ums_compelem*)))
+	if (! kfifo_out_spinlocked(&complist->ready_queue, compelem, 
+				   sizeof(struct ums_compelem*),
+				   &complist->ready_lock))
 		return -2;
 
 	__set_reserved(*compelem, reserve_head);
