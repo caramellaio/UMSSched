@@ -11,7 +11,11 @@ typedef int ums_sched_id;
 
 int ums_sched_init(void);
 
+void ums_sched_deinit(void);
+
 int ums_sched_proc_init(struct proc_dir_entry *ums_dir);
+
+void ums_sched_proc_deinit(void);
 
 int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier);
 
@@ -27,6 +31,5 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id);
 
 int ums_sched_complist_by_current(ums_complist_id *res_id);
 
-void ums_sched_cleanup(void);
 
 #endif /* __UMS_SCHEDULER_H__ */

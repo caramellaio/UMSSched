@@ -110,6 +110,11 @@ void cleanup_module(void)
 	/*
 	* Unregister the device
 	*/
+	ums_complist_proc_deinit();
+	ums_complist_deinit();
+	ums_sched_proc_deinit();
+	ums_sched_deinit();
+	ums_proc_deinit();
 	misc_deregister(&mdev);
 
 	printk(KERN_DEBUG MODULE_NAME_LOG "exit\n");

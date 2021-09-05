@@ -266,9 +266,15 @@ int ums_sched_proc_init(struct proc_dir_entry *ums_dir)
 	return ! ums_scheduler_dir_entry;
 }
 
-void ums_sched_cleanup(void)
+void ums_sched_deinit(void)
 {
 	/* TODO: here various things should be done! */
+}
+
+void ums_sched_proc_deinit(void)
+{
+	ums_proc_delete(ums_scheduler_dir_entry);
+	ums_scheduler_dir_entry = NULL;
 }
 
 static void init_ums_scheduler(struct ums_scheduler* sched, 

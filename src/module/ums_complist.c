@@ -249,6 +249,17 @@ int ums_complist_proc_init(struct proc_dir_entry *ums_dir)
 	return !ums_complist_dir;
 }
 
+void ums_complist_deinit(void)
+{
+	// TODO: implement
+}
+
+void ums_complist_proc_deinit(void)
+{
+	ums_proc_delete(ums_complist_dir);
+	ums_complist_dir = NULL;
+}
+
 int ums_complist_reserve(ums_complist_id comp_id,
 			 int to_reserve,
 			 ums_compelem_id *ret_array,

@@ -37,4 +37,7 @@ int ums_complist_init(void);
 
 int ums_complist_proc_init(struct proc_dir_entry *ums_dir);
 
+void ums_complist_deinit(void);
+
+void ums_complist_proc_deinit(void);
 #endif /* __UMS_COMPLIST_H__ */
