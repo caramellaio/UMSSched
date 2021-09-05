@@ -245,7 +245,7 @@ int ums_sched_exec(ums_compelem_id elem_id)
 	/* mark as the runner */
 	worker->current_elem = elem_id;
 
-	res = ums_compelem_exec(elem_id);
+	res = ums_compelem_exec(elem_id, worker->owner->id);
 
 	worker->switch_time = ktime_get_ns() - act_time;
 	worker->n_switch++;

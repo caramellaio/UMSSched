@@ -364,7 +364,8 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 	return 0;
 }
 
-int ums_compelem_exec(ums_compelem_id compelem_id)
+int ums_compelem_exec(ums_compelem_id compelem_id,
+		      ums_sched_id host_id)
 {
 	struct list_head *list_iter, *temp_head;
 
@@ -410,7 +411,7 @@ int ums_compelem_exec(ums_compelem_id compelem_id)
 
 	put_ums_context(current, &compelem->entry_ctx);
 	printk("%s: setted pt_regs!\n", __func__);
-
+	compelem->host_id = host_id;
 	printk("Exit %s", __func__);
 	/* exec is called from already reserved compelems */
 	return 0;

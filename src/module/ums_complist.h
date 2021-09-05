@@ -32,7 +32,8 @@ int ums_compelem_remove(ums_compelem_id id);
 
 int ums_compelem_store_reg(ums_compelem_id compelem_id);
 
-int ums_compelem_exec(ums_compelem_id compelem_id);
+int ums_compelem_exec(ums_compelem_id compelem_id,
+		      ums_sched_id host_id);
 
 int ums_complist_init(void);
 
