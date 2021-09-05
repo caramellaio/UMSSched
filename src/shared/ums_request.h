@@ -1,7 +1,6 @@
 #ifndef __UMS_REQUEST_H__
 #define __UMS_REQUEST_H__
 
-#include "../module/ums_scheduler.h"
 #define UMS_REQUEST_ENTER_UMS_SCHEDULING 1
 
 #define UMS_REQUEST_EXIT_UMS_SCHEDULING 2

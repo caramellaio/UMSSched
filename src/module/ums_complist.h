@@ -6,7 +6,6 @@ typedef int ums_compelem_id;
 #include "ums_scheduler.h"
 #include "ums_proc.h"
 #include <linux/list.h>
-#include <linux/proc_fs.h>
 
 extern struct proc_dir_entry *ums_proc_dir;
 #define UMS_COMPLIST_HASH_BITS 8

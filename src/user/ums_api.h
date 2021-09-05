@@ -1,8 +1,9 @@
 #ifndef __UMS_LINUX_H__
 #define __UMS_LINUX_H__
 
-#include "../module/ums_scheduler.h"
-#include "../module/ums_complist.h"
+typedef int ums_complist_id;
+typedef int ums_compelem_id;
+typedef int ums_sched_id;
 typedef int (*ums_function)(int);
 
 int EnterUmsSchedulingMode(ums_function entry_point,
