@@ -11,6 +11,7 @@ int ums_proc_init(void)
 
 void ums_proc_deinit(void)
 {
+	printk(KERN_DEBUG "Calling proc deinit");
 	proc_remove(ums_proc_dir);
 	ums_proc_dir = NULL;
 }

@@ -40,10 +40,13 @@ struct ums_compelem {
 	/* element of the list */
 	struct list_head reserve_list;
 
-	/* TODO: might remove the task */
 	struct task_struct* elem_task;
 
 	struct ums_context entry_ctx;
+
+	u64 switch_time;
+	u64 total_time;
+	unsigned int n_switch;
 
 	/* procfs file */
 	struct proc_dir_entry *proc_file;

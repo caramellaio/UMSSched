@@ -15,6 +15,8 @@
 #include <asm/processor.h>
 
 #define COMPELEM_NO_HOST 0
+#define COMPELEM_IDLE_STR "idl"
+#define COMPELEM_RUNNING_STR "run"
 #define __set_reserved(elem, list)				\
 	do {							\
 		(elem)->reserve_head = list;			\
@@ -36,6 +38,16 @@
 		 * to block interrupts */			\
 		up(&complist->elem_sem);			\
 	} while (0)
+
+#define __str_state(compelem)					\
+	((compelem)->host_id == COMPELEM_NO_HOST ?		\
+		COMPELEM_IDLE_STR : COMPELEM_RUNNING_STR)
+
+#define __calc_time(compelem)					\
+	((compelem)->host_id == COMPELEM_NO_HOST ?		\
+	 (compelem)->total_time :				\
+	  (compelem)->total_time + ktime_get_ns() -		\
+	   (compelem)->switch_time)
 
 #define COMPELEM_FILE_MODE 0444
 #define COMPLIST_DIR_NAME "completion_lists"
@@ -359,6 +371,7 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 
 	__register_compelem(compelem->complist, compelem);
 
+	compelem->total_time += ktime_get_ns() - compelem->switch_time;
 	compelem->host_id = COMPELEM_NO_HOST;
 
 	return 0;
@@ -411,7 +424,9 @@ int ums_compelem_exec(ums_compelem_id compelem_id,
 
 	put_ums_context(current, &compelem->entry_ctx);
 	printk("%s: setted pt_regs!\n", __func__);
+	compelem->n_switch++;
 	compelem->host_id = host_id;
+	compelem->switch_time = ktime_get_ns();
 	printk("Exit %s", __func__);
 	/* exec is called from already reserved compelems */
 	return 0;
@@ -474,8 +489,6 @@ static int new_compelement(ums_compelem_id elem_id,
 			   struct ums_complist *complist,
 			   struct ums_compelem *comp_elem)
 {
-	char file_name[32];
-
 	comp_elem->id = elem_id;
 	comp_elem->elem_task = current;
 	comp_elem->complist = complist;
@@ -491,8 +504,9 @@ static int new_compelement(ums_compelem_id elem_id,
 
 	dump_pt_regs(comp_elem->entry_ctx);
 
-	sprintf(file_name, "%d", comp_elem->id);
-
+	comp_elem->n_switch = 0;
+	comp_elem->switch_time = 0;
+	comp_elem->total_time = 0;
 	/* procfs initialization */
 	ums_proc_genidfile(comp_elem->id, complist->proc_dir, 
 			   &ums_compelem_proc_ops, comp_elem, 
@@ -506,16 +520,31 @@ static ssize_t compelem_proc_read(struct file *file,
 				  size_t count,
 				  loff_t *ppos)
 {
-        char buf[1024];
+	struct ums_compelem *compelem;
+        char buf[512];
         int len = 0;
 
         if (*ppos > 0)
                 return 0;
 
-	/* TODO: this is temporary! */
-        len += sprintf(buf, "this is a test proc file, pid=%d\n", current->pid);
+	compelem = PDE_DATA(file_inode(file));
 
-	if (len > count)
+	if (! compelem)
+		return -EFAULT;
+
+	len += sprintf(buf, "state=%s\n", __str_state(compelem));
+
+	if (len > count || len < 0)
+		return -EFAULT;
+
+	len += sprintf(buf, "act_time=%llu\n", __calc_time(compelem));
+
+	if (len > count || len < 0)
+		return -EFAULT;
+
+	len += sprintf(buf, "runner=%d\n", compelem->host_id);
+
+	if (len > count || len < 0)
 		return -EFAULT;
 
         if (copy_to_user(ubuf, buf, len))
