@@ -26,8 +26,8 @@
 
 #define create_thread(function, stack, args)				\
 	clone(&function, stack + TASK_STACK_SIZE,			\
-	      CLONE_VM | CLONE_THREAD | CLONE_SIGHAND | CLONE_FS |	\
-	      CLONE_FILES | SIGCHLD, args);
+	      CLONE_VM | CLONE_FS |	\
+	      CLONE_FILES , args);
 
 #define OPEN_GLOBAL_FD() \
 	((void)(global_fd = global_fd ? global_fd : open("/dev/usermodscheddev", 0)))
@@ -323,8 +323,7 @@ static int __reg_compelem(void *idxs)
 
 	fprintf(stderr, "I am going to execute func!\n");
 	func(id);
-	/* TODO: does it make sense to put the id? */
-	fprintf(stderr, "Calling delete_compelem\n");
+	fprintf(stderr, "Calling delete_compelem: %d\n", id);
 	delete_compelem(id);
 	/* TODO: do delete the stack! */
 	UmsThreadYield();
