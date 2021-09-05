@@ -239,6 +239,8 @@ int ums_sched_exec(ums_compelem_id elem_id)
 	/* if executed by a worker restore */
 	if (worker->current_elem)
 		ums_compelem_store_reg(worker->current_elem);
+	else
+		get_ums_context(current, &worker->entry_ctx);
 
 	/* mark as the runner */
 	worker->current_elem = elem_id;
@@ -304,7 +306,7 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	sched->id = id;
 	sched->comp_id = comp_id;
 
-	if (id_write_trylock(lock))
+	if (! id_write_trylock(lock))
 		/* TODO: check if I really need to handle this */
 		printk(KERN_ERR "Expecting lock to be free!\n");
 
