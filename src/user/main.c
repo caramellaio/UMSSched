@@ -20,9 +20,18 @@ static int entry_point(int ums_sched);
 int main(void) {
 	int err = 0;
 	ums_sched_id sched_id;
+	ums_sched_id sched_id2;
 	ums_complist_id complist_id;
 
-	ums_function funcs[8] = {
+	ums_function funcs[16] = {
+		mult_c,
+		mult_c,
+		incr_c,
+		decr_c,
+		mult_c,
+		mult_c,
+		incr_c,
+		decr_c,
 		mult_c,
 		mult_c,
 		incr_c,
@@ -33,7 +42,7 @@ int main(void) {
 		decr_c
 	};
 
-	if (CreateUmsCompletionList(&complist_id, funcs, 8)) {
+	if (CreateUmsCompletionList(&complist_id, funcs, 16)) {
 		fprintf(stderr, "Fail creating complist\n");
 		return -1;
 	}
@@ -41,6 +50,7 @@ int main(void) {
 	fprintf(stderr, "Completion list: %d\n", complist_id);
 
 	EnterUmsSchedulingMode(entry_point, complist_id, &sched_id);
+	EnterUmsSchedulingMode(entry_point, complist_id, &sched_id2);
 
 	if (WaitUmsChildren())
 		fprintf(stderr, "Oh no, res: %d", err ? err : (++err));
