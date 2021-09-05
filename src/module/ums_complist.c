@@ -249,6 +249,7 @@ int ums_compelem_remove(ums_compelem_id id)
 	if (list_empty(&compelem->complist->compelems))
 		delete_complist(compelem->complist);
 
+	wake_up_process(compelem->elem_task);
 	kfree(compelem);
 
 	return 0;
@@ -537,12 +538,12 @@ static ssize_t compelem_proc_read(struct file *file,
 	if (len > count || len < 0)
 		return -EFAULT;
 
-	len += sprintf(buf, "act_time=%llu\n", __calc_time(compelem));
+	len += sprintf(buf + len, "act_time=%llu\n", __calc_time(compelem));
 
 	if (len > count || len < 0)
 		return -EFAULT;
 
-	len += sprintf(buf, "runner=%d\n", compelem->host_id);
+	len += sprintf(buf + len, "runner=%d\n", compelem->host_id);
 
 	if (len > count || len < 0)
 		return -EFAULT;
