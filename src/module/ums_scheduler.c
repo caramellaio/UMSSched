@@ -62,9 +62,7 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 	 * check if complist with `comp_list_id` exists
 	 * append the current scheduler entry in the list 
 	*/
-
-	/* TODO: use id instead of list (otherwise mess with locking) */
-	ums_complist_add_scheduler(comp_list_id, &ums_sched->complist_head);
+	ums_complist_add_scheduler(comp_list_id, ums_sched->id);
 
 	return 0;
 }

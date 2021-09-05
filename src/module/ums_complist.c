@@ -34,8 +34,6 @@
 		/* check if lock is necessary for kfifo */	\
 		kfifo_in(&(complist)->ready_queue,		\
 			 &(compelem), sizeof(compelem));	\
-		/* TODO: check if it is necessary		\
-		 * to block interrupts */			\
 		up(&complist->elem_sem);			\
 	} while (0)
 
@@ -76,6 +74,10 @@ static struct proc_ops ums_compelem_proc_ops =
 
 /* end procfs */
 
+struct id_entry {
+	int id;
+	struct list_head list;
+};
 
 static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
@@ -123,12 +125,13 @@ int ums_complist_add(ums_complist_id *result)
 }
 
 int ums_complist_add_scheduler(ums_complist_id id, 
-			       struct list_head *sched_list)
+			       ums_sched_id sched_id)
 {
 	int res;
 	int iter;
 	struct id_rwlock *lock;
 	struct ums_complist *complist;
+	struct id_entry *sched_list;
 
 	hashrwlock_find(ums_complist_hash, id, &lock);
 
@@ -140,10 +143,13 @@ int ums_complist_add_scheduler(ums_complist_id id,
 
 	complist = lock->data;
 
-	/* TODO: is this safe? */
+	sched_list = kmalloc(sizeof(struct id_entry), GFP_KERNEL);
+
+	sched_list->id = sched_id;
+
 	id_read_trylock_region(lock, iter, res) {
 		/* TODO: add list spinlock! */
-		list_add(sched_list, &complist->schedulers);
+		list_add(&sched_list->list, &complist->schedulers);
 	}
 
 	return res;
@@ -467,16 +473,16 @@ static int delete_complist(struct ums_complist *complist)
 
 	kfifo_free(&complist->ready_queue);
 
-	/* TODO: we are assuming that complist is empty: ensure that */
-
 	/* isolation is granted by already in use write_lock */
 	list_for_each_safe(iter, safeiter, &complist->schedulers) {
-		struct ums_scheduler *sched;
+		struct id_entry *sched_entry;
 
-		sched = list_entry(iter, struct ums_scheduler, complist_head);
+		sched_entry = list_entry(iter, struct id_entry, list);
 
-		if (likely(sched))
-			ums_sched_remove(sched->id);
+		if (likely(sched_entry)) {
+			ums_sched_remove(sched_entry->id);
+			kfree(sched_entry);
+		}
 	}
 
 	ums_proc_delete(complist->proc_dir);
