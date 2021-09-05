@@ -42,7 +42,8 @@ int main(void) {
 
 	EnterUmsSchedulingMode(entry_point, complist_id, &sched_id);
 
-	getchar();
+	if (WaitUmsChildren())
+		fprintf(stderr, "Oh no, res: %d", err ? err : (++err));
 	return err;
 }
 
