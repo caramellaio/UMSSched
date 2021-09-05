@@ -22,7 +22,8 @@ int ums_complist_reserve(ums_complist_id comp_id,
 			 int *size);
 
 int ums_compelem_add(ums_compelem_id* result,
-		     ums_complist_id list_id);
+		     ums_complist_id list_id,
+		     void * __user user_data);
 
 int ums_complist_add_scheduler(ums_complist_id id, 
 			       struct list_head *sched_list);

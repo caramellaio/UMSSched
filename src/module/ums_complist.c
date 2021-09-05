@@ -159,7 +159,8 @@ int ums_complist_remove(ums_complist_id id)
 }
 
 int ums_compelem_add(ums_compelem_id* result,
-		     ums_complist_id list_id)
+		     ums_complist_id list_id,
+		     void * __user user_data)
 {
 	struct ums_compelem *compelem;
 	struct ums_complist *complist;
@@ -197,6 +198,12 @@ int ums_compelem_add(ums_compelem_id* result,
 	if (! locked)
 		return -1;
 
+	/* copy to the user the current id before sleeping forever */
+	/* When a scheduler thread will wake up he will have the correct 
+	 * informations */
+	if (copy_to_user(user_data, result, sizeof(ums_compelem_id)))
+		return -1;
+
 	/* block completion element */
 	set_current_state(TASK_INTERRUPTIBLE);
 	schedule();
@@ -224,6 +231,7 @@ int ums_compelem_remove(ums_compelem_id id)
 	/* remove from the list, if list is empty delete complist! */
 	list_del(&compelem->complist_head);
 
+	printk(KERN_DEBUG "Delete compelem %d proc file", id);
 	ums_proc_delete(compelem->proc_file);
 
 	if (list_empty(&compelem->complist->compelems))

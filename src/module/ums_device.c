@@ -298,7 +298,7 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 
 
 		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_compelem_add...\n");
-		err = ums_compelem_add(&result, *in_buf);
+		err = ums_compelem_add(&result, *in_buf, (void *)data);
 
 		kfree(in_buf);
 		if (err) {
@@ -308,8 +308,6 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 
 		printk(KERN_INFO MODULE_NAME_LOG "ums completion elem entry %d created.\n", result);
 
-		if (copy_to_user((void*)data, &result, sizeof(int)))
-			return FAILURE;
 	}
 	break;
 
