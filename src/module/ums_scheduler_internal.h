@@ -18,6 +18,8 @@ struct ums_sched_worker {
 	struct task_struct *worker;
 	struct ums_context entry_ctx;
 
+	u64					switch_time;
+	unsigned int				n_switch;
 	/* procfs directory */
 	struct proc_dir_entry			*proc_dir;
 

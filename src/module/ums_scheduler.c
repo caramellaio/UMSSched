@@ -12,6 +12,7 @@
 #include <linux/sched/signal.h>
 #include <linux/hashtable.h>
 #include <linux/list.h>
+#include <linux/timekeeping.h>
 
 #define get_worker(sched) (*get_cpu_ptr(sched->workers))
 
@@ -28,9 +29,9 @@ static atomic_t ums_sched_counter = ATOMIC_INIT(0);
 
 /* procfs */
 static ssize_t sched_worker_proc_read(struct file *file,
-				     char __user *ubuf, 
-				     size_t count,
-				     loff_t *ppos);
+				      char __user *ubuf, 
+				      size_t count,
+				      loff_t *ppos);
 
 static struct proc_ops ums_sched_worker_proc_ops =
 {
@@ -107,6 +108,8 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 		/* set cpu var to current. */
 		worker->owner = sched;
 		worker->worker = current;
+		worker->n_switch = 0;
+		worker->switch_time = 0;
 
 		gen_ums_context(current, &worker->entry_ctx);
 		put_cpu_ptr(sched->workers);
@@ -193,6 +196,7 @@ int ums_sched_remove(ums_sched_id id)
 
 int ums_sched_yield(void)
 {
+	u64 act_time;
 	struct ums_sched_worker *worker;
 
 	get_worker_by_current(&worker);
@@ -204,6 +208,7 @@ int ums_sched_yield(void)
 		/* Yield triggered by an entry_point function is an NOP operation */
 		return 0;
 
+	act_time = ktime_get_ns();
 
 	/* save compelem state */
 	ums_compelem_store_reg(worker->current_elem);
@@ -213,6 +218,9 @@ int ums_sched_yield(void)
 
 	put_ums_context(current, &worker->entry_ctx);
 
+	worker->switch_time = ktime_get_ns() - act_time;
+	worker->n_switch++;
+
 	return 0;
 }
 
@@ -220,12 +228,14 @@ int ums_sched_exec(ums_compelem_id elem_id)
 {
 	struct ums_sched_worker *worker;
 	int res = 0;
-	
+	u64 act_time;
+	printk(KERN_DEBUG "Calling exec on compelem: %d", elem_id);
 	get_worker_by_current(&worker);
 
 	if (unlikely(! worker))
 		return -1;
 
+	act_time = ktime_get_ns();
 	/* if executed by a worker restore */
 	if (worker->current_elem)
 		ums_compelem_store_reg(worker->current_elem);
@@ -234,6 +244,9 @@ int ums_sched_exec(ums_compelem_id elem_id)
 	worker->current_elem = elem_id;
 
 	res = ums_compelem_exec(elem_id);
+
+	worker->switch_time = ktime_get_ns() - act_time;
+	worker->n_switch++;
 
 	return res;
 }
@@ -358,19 +371,53 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 }
 
 static ssize_t sched_worker_proc_read(struct file *file,
-				      char __user *ubuf, 
+				      char __user *ubuf,
 				      size_t count,
 				      loff_t *ppos)
 {
-        char buf[1024];
+	struct ums_sched_worker *worker;
+        char buf[512];
         int len = 0;
 
         if (*ppos > 0)
                 return 0;
 
-	/* TODO: this is temporary! */
-        len += sprintf(buf, "this is a test proc file, pid=%d\n", current->pid);
+	worker = PDE_DATA(file_inode(file));
 
+	if (! worker)
+		return -EFAULT;
+
+	/* print pid: */
+	len += sprintf(buf + len, "pid=%d\n", worker->worker->pid);
+
+	if (len > count || len < 0)
+		return -EFAULT;
+
+	/* print task_state */
+	len += sprintf(buf + len, "state=%u\n", task_state_index(worker->worker));
+
+	if (len > count || len < 0)
+		return -EFAULT;
+
+	/* print switches */
+	len += sprintf(buf + len, "n_switch=%u\n", worker->n_switch);
+
+	if (len > count || len < 0)
+		return -EFAULT;
+
+	/* print completion list */
+	len += sprintf(buf + len, "complist=%u\n", worker->owner->comp_id);
+
+	if (len > count || len < 0)
+		return -EFAULT;
+	/* print actual worker */
+
+	len += sprintf(buf + len, "worker=%d\n", worker->current_elem);
+	if (len > count || len < 0)
+		return -EFAULT;
+
+	/* average switch time */
+	len += sprintf(buf + len, "last_switch_t=%llu\n", worker->switch_time);
 	if (len > count)
 		return -EFAULT;
 
