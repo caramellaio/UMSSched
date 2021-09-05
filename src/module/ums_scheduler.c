@@ -4,6 +4,7 @@
 #include "ums_complist_internal.h"
 #include "ums_context_switch.h"
 #include "id_rwlock.h"
+#include "ums_proc.h"
 
 #include <linux/slab.h>
 #include <linux/percpu.h>
@@ -70,7 +71,6 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 
 int ums_sched_register_sched_thread(ums_sched_id sched_id)
 {
-	char dir_name[32];
 	int res = 0, try_res = 0, iter = 0;
 	struct ums_sched_worker *worker = NULL;
 	struct ums_scheduler* sched;
@@ -113,12 +113,9 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 
 		hash_add(ums_sched_worker_hash, &worker->list, worker->worker->pid);
 
-		/* generate proc dir name */
-		sprintf(dir_name, "%d", get_cpu());
+		/* generate proc directory */
+		ums_proc_geniddir(get_cpu(), sched->proc_dir, &worker->proc_dir);
 
-		/* create proc directory */
-		worker->proc_dir = proc_mkdir(dir_name, 
-					      sched->proc_dir);
 		/* create proc file */
 		worker->proc_info_file = proc_create_data(WORKER_INFO_FILE,
 							  WORKER_FILE_MODE,
@@ -306,6 +303,9 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	}
 
 	INIT_LIST_HEAD(&sched->wait_procs);
+
+	ums_proc_geniddir(id, ums_scheduler_dir_entry, &sched->proc_dir);
+
 	id_write_unlock(lock);
 }
 
@@ -326,6 +326,10 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 		send_sig(SIGINT, worker->worker, 0);
 
 		// TODO: set completion element status as `free`
+		
+		/* remove procfs data */
+		ums_proc_delete(worker->proc_info_file);
+		ums_proc_delete(worker->proc_dir);
 	}
 
 	free_percpu(sched->workers);
@@ -342,6 +346,9 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 
 		kfree(wait);
 	}
+
+	/* remove scheduler directory */
+	ums_proc_delete(sched->proc_dir);
 }
 
 static ssize_t sched_worker_proc_read(struct file *file,

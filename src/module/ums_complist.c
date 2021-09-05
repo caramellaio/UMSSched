@@ -4,6 +4,7 @@
 #include "ums_scheduler_internal.h"
 #include "id_rwlock.h"
 #include "ums_scheduler.h"
+#include "ums_proc.h"
 
 #include <linux/kfifo.h>
 #include <linux/list.h>
@@ -136,6 +137,7 @@ int ums_complist_add_scheduler(ums_complist_id id,
 	return res;
 }
 
+/* TODO: Eventually set this function as static */
 int ums_complist_remove(ums_complist_id id)
 {
 	int iter;
@@ -221,6 +223,8 @@ int ums_compelem_remove(ums_compelem_id id)
 
 	/* remove from the list, if list is empty delete complist! */
 	list_del(&compelem->complist_head);
+
+	ums_proc_delete(compelem->proc_file);
 
 	if (list_empty(&compelem->complist->compelems))
 		delete_complist(compelem->complist);
@@ -412,6 +416,9 @@ static int new_complist(ums_complist_id comp_id,
 	INIT_LIST_HEAD(&complist->compelems);
 	INIT_LIST_HEAD(&complist->schedulers);
 
+	/* init proc directory */
+	ums_proc_geniddir(complist->id, ums_complist_dir, &complist->proc_dir);
+
 new_complist_exit:
 	return res;
 }
@@ -433,6 +440,8 @@ static int delete_complist(struct ums_complist *complist)
 		if (likely(sched))
 			ums_sched_remove(sched->id);
 	}
+
+	ums_proc_delete(complist->proc_dir);
 
 	kfree(complist);
 
@@ -463,11 +472,10 @@ static int new_compelement(ums_compelem_id elem_id,
 	sprintf(file_name, "%d", comp_elem->id);
 
 	/* procfs initialization */
-	comp_elem->proc_file = proc_create_data(file_name,
-						COMPELEM_FILE_MODE,
-						complist->proc_dir,
-						&ums_compelem_proc_ops,
-						comp_elem);
+	ums_proc_genidfile(comp_elem->id, complist->proc_dir, 
+			   &ums_compelem_proc_ops, comp_elem, 
+			   &comp_elem->proc_file);
+
 	return 0;
 }
 
