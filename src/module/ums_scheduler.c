@@ -149,7 +149,6 @@ int ums_sched_wait(ums_sched_id sched_id)
 	if (! lock->data)
 		return -1;
 
-	/* TODO: this kmalloc is non-sense */
 	id_read_trylock_region(lock, iter, res) {
 		sched = lock->data;
 		wait = kmalloc(sizeof(struct ums_sched_wait), GFP_KERNEL);
@@ -307,7 +306,6 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 	sched->comp_id = comp_id;
 
 	if (! id_write_trylock(lock))
-		/* TODO: check if I really need to handle this */
 		printk(KERN_ERR "Expecting lock to be free!\n");
 
 	hashrwlock_add(ums_sched_hash, lock);
@@ -343,11 +341,8 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 	for_each_possible_cpu(cpu) {
 		struct ums_sched_worker *worker = *per_cpu_ptr(sched->workers, cpu);
 
-		/* TODO: handle signals to safely die */
 		send_sig(SIGINT, worker->worker, 0);
 
-		// TODO: set completion element status as `free`
-		
 		/* remove procfs data */
 		ums_proc_delete(worker->proc_info_file);
 		ums_proc_delete(worker->proc_dir);
@@ -360,7 +355,6 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 
 		wait = list_entry(list_iter, struct ums_sched_wait, list);
 
-		/* TODO: wakeup_process o wakepu_state? */
 		wake_up_process(wait->task);
 
 		list_del(&wait->list);
