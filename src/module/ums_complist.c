@@ -285,6 +285,8 @@ int ums_complist_reserve(ums_complist_id comp_id,
 	if (! lock->data)
 		return -1;
 
+	complist = lock->data;
+
 	if (! id_read_trylock(lock))
 		return -1;
 
