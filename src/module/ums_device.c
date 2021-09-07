@@ -175,18 +175,6 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	}
 	break;
 
-	case UMS_REQUEST_EXIT_UMS_SCHEDULING:
-	{
-		int err = 0;
-		ums_sched_id id = (ums_sched_id)data;
-
-		err = ums_sched_remove(id);
-
-		if (err)
-			return FAILURE;
-	}
-	break;
-
 	case UMS_REQUEST_WAIT_UMS_SCHEDULER:
 	{
 		int err = 0;
