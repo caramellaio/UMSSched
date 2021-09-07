@@ -1,15 +1,25 @@
 #ifndef __UMS_COMPLIST_H__
 #define __UMS_COMPLIST_H__
 
+/**
+ * @brief type of the identifier of completion list
+*/
 typedef int ums_complist_id;
+
+/**
+ * @brief type of the identifier of completion element
+*/
 typedef int ums_compelem_id;
 #include "ums_scheduler.h"
 #include "ums_proc.h"
 #include <linux/list.h>
 
 extern struct proc_dir_entry *ums_proc_dir;
+
+/* TODO: move in C or internal file */
 #define UMS_COMPLIST_HASH_BITS 8
 #define UMS_COMPELEM_HASH_BITS 8
+
 int ums_complist_add(ums_complist_id *result);
 
 int ums_complist_remove(ums_complist_id id);
@@ -42,4 +52,5 @@ int ums_complist_proc_init(struct proc_dir_entry *ums_dir);
 void ums_complist_deinit(void);
 
 void ums_complist_proc_deinit(void);
+
 #endif /* __UMS_COMPLIST_H__ */
