@@ -91,6 +91,8 @@ struct ums_context {
 	do {								\
 		memcpy(&(res)->pt_regs, task_pt_regs(task),		\
 		       sizeof(struct pt_regs));				\
+		memset(&(res)->fpu_regs, 0, sizeof(struct fpu));	\
+		copy_fxregs_to_kernel(&(res)->fpu_regs);		\
 	} while (0)
 
 /**
@@ -113,6 +115,7 @@ struct ums_context {
 	do {								\
 		memcpy(&(ctx)->pt_regs, task_pt_regs(task),		\
 		       sizeof(struct pt_regs));				\
+		copy_kernel_to_fxregs(&(ctx)->fpu_regs.state.fxsave);	\
 	} while (0)
 
 /**
@@ -138,6 +141,7 @@ struct ums_context {
 	do {								\
 		memcpy(task_pt_regs(task), &(ctx)->pt_regs,		\
 		       sizeof(struct pt_regs));				\
+		copy_fxregs_to_kernel(&(ctx)->fpu_regs);		\
 	} while (0)
 
 /**
