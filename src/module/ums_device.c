@@ -1,4 +1,12 @@
-/*
+/* @author Alberto Bombardelli
+ *
+ * @file ums_device.c
+ *
+ * @brief Implementation of the ums_device (ioctl device) module
+ *
+ * This file contains the implementation of the module ums_device which is in
+ * charge of comunicating with userspace the requests for the other modules
+ * and to start and kill the the other modules.
  */
 
 #include <linux/kernel.h>
