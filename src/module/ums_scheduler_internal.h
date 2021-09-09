@@ -107,9 +107,9 @@ struct ums_scheduler {
 	ums_sched_id id;
 
 	/**
-	 * @brief tgid allowed to access to this scheduler
+	 * @brief Memory mapping used by the schedulers thread
 	*/
-	pid_t tgid;
+	struct mm_struct *mm;
 
 	/**
 	 * @brief Completion list linked to the scheduler

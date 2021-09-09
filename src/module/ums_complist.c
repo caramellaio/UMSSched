@@ -150,8 +150,8 @@
  *
  * @return 0 if ok, otherwise non-zero
 */
-#define __check_tgid(complist)					\
-	(complist->tgid != current->tgid)
+#define __check_memory(complist)				\
+	(complist->mm != current->mm)
 
 /**
  * @brief Constant for the idle string used in complem proc file
@@ -381,7 +381,6 @@ int ums_complist_add(ums_complist_id *result)
  *
  * @param[in] id: identifier of the completion list
  * @param[in] sched_id: identifier of the scheduler to be added
- * @param[in] tgid: group id of the scheduler
  *
  * Insert the index of the scheduler inside a list used to keep track of the
  * scheduler that are using this completion list. If the thread group id of
@@ -393,11 +392,9 @@ int ums_complist_add(ums_complist_id *result)
  * @return 0 if no error occured, non-zero otherwise
 */
 int ums_complist_add_scheduler(ums_complist_id id, 
-			       ums_sched_id sched_id,
-			       pid_t tgid)
+			       ums_sched_id sched_id)
 {
 	int res;
-	int iter;
 	struct id_rwlock *lock;
 	struct ums_complist *complist;
 	struct id_entry *sched_list;
@@ -418,16 +415,20 @@ int ums_complist_add_scheduler(ums_complist_id id,
 
 	sched_list->id = sched_id;
 
-	id_read_trylock_region(lock, iter, res) {
-		if (tgid == complist->tgid) {
-			res = -EFAULT;
-		}
-		else {
-			spin_lock(&complist->schedulers_lock);
-			list_add(&sched_list->list, &complist->schedulers);
-			spin_unlock(&complist->schedulers_lock);
-		}
+	if (! id_read_trylock(lock))
+		return -1;
+
+	if (__check_memory(complist)) {
+		res = -EFAULT;
 	}
+	else {
+		spin_lock(&complist->schedulers_lock);
+		list_add(&sched_list->list, &complist->schedulers);
+		spin_unlock(&complist->schedulers_lock);
+		res = 0;
+	}
+
+	id_read_unlock(lock);
 
 	if (res)
 		kfree(sched_list);
@@ -438,7 +439,6 @@ int ums_complist_add_scheduler(ums_complist_id id,
 
 static int remove_complist(ums_complist_id id)
 {
-	int iter;
 	struct ums_complist *complist;
 	struct id_rwlock *lock;
 
@@ -451,11 +451,15 @@ static int remove_complist(ums_complist_id id)
 		/* Already removed means success */
 		return 0;
 
-	id_write_lock_region(lock, iter) {
-		deinit_complist(complist);
-		lock->data = NULL;
-		kfree(complist);
-	}
+	complist = lock->data;
+
+	id_write_lock(lock);
+
+	deinit_complist(complist);
+	lock->data = NULL;
+	kfree(complist);
+
+	id_write_unlock(lock);
 
 	return 0;
 }
@@ -482,11 +486,10 @@ int ums_compelem_add(ums_compelem_id* result,
 		     ums_complist_id list_id,
 		     void * __user user_data)
 {
+	int res;
 	struct ums_compelem *compelem;
 	struct ums_complist *complist;
 	struct id_rwlock *lock;
-	int iter, locked;
-	int res = 0;
 
 	*result = atomic_inc_return(&ums_compelem_counter);
 
@@ -502,32 +505,31 @@ int ums_compelem_add(ums_compelem_id* result,
 		return -1;
 	}
 
-	id_read_trylock_region(lock, iter, locked) {
-		complist = lock->data;
+	if (! id_read_trylock(lock))
+		return -1;
 
-		if (complist->tgid != current->tgid) {
-			res = -EFAULT;
+	complist = lock->data;
+
+	if (__check_memory(complist)) {
+		res = -EFAULT;
+	}
+	else {
+		compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
+
+		if (unlikely(! compelem))  {
+			res = -1;
 		}
 		else {
-			compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
+			res = new_compelement(*result, complist, compelem);
 
-			if (unlikely(! compelem))  {
-				res = -1;
-			}
-			else {
-				res = new_compelement(*result, complist, compelem);
-
-				__register_compelem(complist, compelem);
-			}
+			__register_compelem(complist, compelem);
 		}
 	}
 
+	id_read_unlock(lock);
+
 	if (res)
 		return res;
-
-	/* lock failed: complist is getting destroyed */
-	if (! locked)
-		return -EFAULT;
 
 	/* copy to the user the current id before sleeping forever */
 	/* When a scheduler thread will wake up he will have the correct 
@@ -566,8 +568,9 @@ int ums_compelem_remove(ums_compelem_id id)
 	if (! compelem)
 		return -EFAULT;
 
-	if (unlikely(compelem->pid) != current->pid)
+	if (unlikely(compelem->pid != current->pid)) {
 		return -EFAULT;
+	}
 
 	hash_del_rcu(&compelem->list);
 
@@ -586,12 +589,16 @@ int ums_compelem_remove(ums_compelem_id id)
 	/* remove from the list, if list is empty delete complist! */
 	list_del(&compelem->complist_head);
 
-	if (list_empty(&compelem->complist->compelems))
+
+	if (list_empty(&compelem->complist->compelems)) {
 		/* Here using the function with locks is still necessary for
 		 * safety reasons! */
+		spin_unlock(&compelem->complist->compelems_lock);
 		remove_complist(compelem->complist->id);
+	}
+	else
+		spin_unlock(&compelem->complist->compelems_lock);
 
-	spin_unlock(&compelem->complist->compelems_lock);
 
 	ums_proc_delete(compelem->proc_file);
 
@@ -728,7 +735,7 @@ int ums_complist_reserve(ums_complist_id comp_id,
 	if (! id_read_trylock(lock))
 		return -1;
 
-	if (unlikely(__check_tgid(complist))) {
+	if (unlikely(__check_memory(complist))) {
 		res = -1;
 		goto complist_reserve_exit;
 	}
@@ -748,10 +755,16 @@ int ums_complist_reserve(ums_complist_id comp_id,
 		goto complist_reserve_exit;
 	}
 
+	id_read_unlock(lock);
+
+	/* Leaving this locked generates deadlocks (which are not good :) )*/
 	if (unlikely(reserve_compelem(complist, &compelem_0, reserve_list, 1))) {
 		res = -2;
 		goto complist_reserve_exit;
 	}
+
+	if (unlikely(! id_read_trylock(lock)))
+		return -1;
 
 	if (unlikely(! compelem_0)) {
 		res = -2;
@@ -895,12 +908,12 @@ int ums_compelem_exec(ums_compelem_id compelem_id,
  * @return 0 if everything is OK, otherwise an error code
 */
 static int new_complist(ums_complist_id comp_id,
-				struct ums_complist *complist)
+			struct ums_complist *complist)
 {
 	int res;
 
-	printk("calling: %s", __func__);
 	complist->id = comp_id;
+	complist->mm = current->mm;
 
 
 	res = kfifo_alloc(&complist->ready_queue, PAGE_SIZE, GFP_KERNEL);

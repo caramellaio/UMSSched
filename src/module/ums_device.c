@@ -210,6 +210,7 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		err = ums_sched_register_sched_thread(*in_buf);
 
 		if (err) {
+			printk(KERN_ERR MODULE_NAME_LOG "ums_sched_register_sched_thread failed\n");
 			kfree(in_buf);
 			return FAILURE;
 		}

@@ -55,11 +55,9 @@ struct ums_complist {
 	spinlock_t ready_lock;
 
 	/**
-	 * This field is the thread group id for the completion list. We keep
-	 * track of it because schedulers and completion lists with different
-	 * tgid cannot interract with each other.
+	 * Memory map used for all the elements of the completion list
 	*/
-	pid_t tgid;
+	struct mm_struct *mm;
 
 	/** list of completion elements pointers (ums_compelem*) that are owned
 	 * and managed by this completion list. */
