@@ -821,6 +821,16 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
  *
  * @param[in] compelem_id: completion element identifier
  * @param[in] host_id: scheduler executer id
+ *
+ * This function executes a completion list. It sets host_id and perform the
+ * context switch. This function returns an error if the caller is not the
+ * one that registered the completion element, if no reservation was done or
+ * if the completion list does not exist. This function also frees the other
+ * elements of the reservation list.
+ *
+ * @sa ums_compelem_store_reg
+ * @sa ums_complist_reserve
+ * @return 0 if no error, otherwise non-zero
 */
 int ums_compelem_exec(ums_compelem_id compelem_id,
 		      ums_sched_id host_id)
