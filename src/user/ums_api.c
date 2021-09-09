@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include "ums_api.h"
-#include "../shared/ums_request.h"
+#include "../module/ums_device.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
