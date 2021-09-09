@@ -1,14 +1,12 @@
 # AOSV Final Project
 _A.Y. 2020/2021_
 
-## Author(s)
+## Author
 
-The author(s) of this project is/are:
-- Name Surname (0123456)
-- Name Surname (0123456)
+The author(s) of this project is:
+- Alberto Bombardelli (1903114)
 
 ## Instructions
-
 ### Tree
 
 Please use:
