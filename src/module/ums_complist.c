@@ -186,6 +186,26 @@
 #define COMPLIST_DIR_NAME "completion_lists"
 
 /**
+ * @brief Find a compelem from the completion element hash table
+ *
+ * @param[in] id: identifier
+ * @param[out] compelem: ref to the resulting compelem
+ *
+ * @return void
+ * @note If no element was found set compelem to NULL
+ * @todo Move into a private macro.
+*/
+#define __get_from_compelem_id(_id, compelem)			\
+	do {							\
+		*compelem = NULL;				\
+		hash_for_each_possible_rcu(ums_compelem_hash,	\
+					   *compelem,		\
+					   list, _id) {		\
+			if ((*compelem)->id == _id)		\
+				break;				\
+		}						\
+	} while (0)
+/**
  * @brief hash_rwlock of the completion lists
  *
  * Delete safe completion list hash to safely read and write to the
@@ -509,7 +529,7 @@ int ums_compelem_remove(ums_compelem_id id)
 	if (! compelem)
 		return -EFAULT;
 
-	hash_del(&compelem->list);
+	hash_del_rcu(&compelem->list);
 
 	if (compelem->reserve_head) {
 		list_del(&compelem->reserve_list);
@@ -799,26 +819,7 @@ int ums_compelem_exec(ums_compelem_id compelem_id,
 	return 0;
 }
 
-/**
- * @brief Find a compelem from the completion element hash table
- *
- * @param[in] id: identifier
- * @param[out] compelem: ref to the resulting compelem
- *
- * @return void
- * @note If no element was found set compelem to NULL
- * @todo Move into a private macro.
-*/
-void __get_from_compelem_id(ums_compelem_id id,
-	       		    struct ums_compelem** compelem)
-{
-	*compelem = NULL;
 
-	hash_for_each_possible(ums_compelem_hash, *compelem, list, id) {
-		if ((*compelem)->id == id)
-			break;
-	}
-}
 
 /**
  * @brief Initialize ums_complist structure

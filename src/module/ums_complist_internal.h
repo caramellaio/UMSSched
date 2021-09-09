@@ -150,8 +150,4 @@ struct ums_compelem {
 	struct proc_dir_entry *proc_file;
 };
 
-/** @todo make private? */
-void __get_from_compelem_id(ums_compelem_id id,
-	       		    struct ums_compelem** compelem);
-
 #endif /* __UMS_COMPLIST_INTERNAL_H__ */
