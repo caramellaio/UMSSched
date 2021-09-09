@@ -93,11 +93,7 @@
 */
 #define __set_released(elem)					\
 	do {							\
-		if (likely((elem)->reserve_list))		\
-			list_del(&(elem)->reserve_list);	\
-		else						\
-			printk(KERN_ALERT			\
-			       "Error in  __set_release")	\
+		list_del(&(elem)->reserve_list);		\
 		(elem)->reserve_head = NULL;			\
 	} while (0)
 
