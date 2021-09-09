@@ -221,7 +221,6 @@ int WaitUmsScheduler(ums_sched_id sched_id)
 */
 int WaitUmsChildren(void)
 {
-	/* TODO: qui */
 	struct list_head *iter, *tmp_iter;
 
 	OPEN_GLOBAL_FD();
@@ -536,6 +535,7 @@ static int __reg_compelem(void *idxs)
 	func(id);
 	fprintf(stderr, "Calling delete_compelem: %d\n", id);
 	delete_compelem(id);
+	/* NOTE: after delete compelem 2 processes will try to get yield*/
 	UmsThreadYield();
 
 	if (res) {
