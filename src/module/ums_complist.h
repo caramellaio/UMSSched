@@ -113,8 +113,6 @@ extern struct proc_dir_entry *ums_proc_dir;
 
 int ums_complist_add(ums_complist_id *result);
 
-int ums_complist_remove(ums_complist_id id);
-
 int ums_complist_exists(ums_complist_id comp_id);
 
 int ums_complist_reserve(ums_complist_id comp_id,

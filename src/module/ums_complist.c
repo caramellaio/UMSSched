@@ -302,7 +302,9 @@ struct id_entry {
 static int new_complist(ums_complist_id comp_id,
 			 struct ums_complist *complist);
 
-static int delete_complist(struct ums_complist *complist);
+static int remove_complist(ums_complist_id comp_id);
+
+static int deinit_complist(struct ums_complist *complist);
 
 static int new_compelement(ums_compelem_id elem_id,
 			   struct ums_complist *complist,
@@ -411,8 +413,8 @@ int ums_complist_add_scheduler(ums_complist_id id,
 	return res;
 }
 
-/* TODO: Eventually set this function as static */
-int ums_complist_remove(ums_complist_id id)
+
+static int remove_complist(ums_complist_id id)
 {
 	int iter;
 	struct ums_complist *complist;
@@ -424,12 +426,14 @@ int ums_complist_remove(ums_complist_id id)
 		return -1;
 
 	if (! lock->data)
-		return -1;
+		/* Already removed means success */
+		return 0;
 
-	id_write_lock_region(lock, iter)
-		delete_complist(complist);
-
-	/* TODO: remove entry!!! */
+	id_write_lock_region(lock, iter) {
+		deinit_complist(complist);
+		lock->data = NULL;
+		kfree(complist);
+	}
 
 	return 0;
 }
@@ -547,7 +551,9 @@ int ums_compelem_remove(ums_compelem_id id)
 	list_del(&compelem->complist_head);
 
 	if (list_empty(&compelem->complist->compelems))
-		delete_complist(compelem->complist);
+		/* Here using the function with locks is still necessary for
+		 * safety reasons! */
+		remove_complist(compelem->complist->id);
 
 	spin_unlock(&compelem->complist->compelems_lock);
 
@@ -867,7 +873,7 @@ new_complist_exit:
  *	completion element is present in the list.
  * @return 0 if everything is OK, otherwise an error code
 */
-static int delete_complist(struct ums_complist *complist)
+static int deinit_complist(struct ums_complist *complist)
 {
 	struct list_head *iter, *safeiter;
 
@@ -886,8 +892,6 @@ static int delete_complist(struct ums_complist *complist)
 	}
 
 	ums_proc_delete(complist->proc_dir);
-
-	kfree(complist);
 
 	return 0;
 }

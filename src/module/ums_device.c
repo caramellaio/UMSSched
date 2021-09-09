@@ -268,22 +268,6 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 	}
 	break;
 
-	case UMS_REQUEST_REMOVE_COMPLETION_LIST:
-	{
-		int err = 0;
-
-		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_complist_remove...\n");
-
-		err = ums_complist_remove((int)data);
-
-		if (err)
-			return FAILURE;
-
-		printk(KERN_INFO MODULE_NAME_LOG "ums completion list entry %d removed.\n", 
-		       (int)data);
-	}
-	break;
-
 	case UMS_REQUEST_REGISTER_COMPLETION_ELEM:
 	{
 		int err = 0;
@@ -316,6 +300,8 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 		int err = 0;
 
 		printk(KERN_DEBUG MODULE_NAME_LOG "Calling ums_compelem_remove\n...");
+
+		/* TODO: do not use params */
 		err = ums_compelem_remove((int)data);
 
 		if (err)
