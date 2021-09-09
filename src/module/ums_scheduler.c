@@ -142,7 +142,12 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 	 * check if complist with `comp_list_id` exists
 	 * append the current scheduler entry in the list 
 	*/
-	return ums_complist_add_scheduler(comp_list_id, ums_sched->id);
+	if (ums_complist_add_scheduler(comp_list_id, ums_sched->id)) {
+		ums_sched_remove(ums_sched->id);
+		return -EFAULT;
+	}
+
+	return 0;
 }
 
 /**
