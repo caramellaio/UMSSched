@@ -1,9 +1,38 @@
+/**
+ * @author Alberto Bombardelli
+ *
+ * @file ums_api.h
+ *
+ * @brief Public API to ums functions, for detailed instruction see the
+ * report pdf in doc/report.pdf.
+*/
 #ifndef __UMS_LINUX_H__
 #define __UMS_LINUX_H__
 
+/**
+ * @brief complist identifier
+ *
+ * Duplicate of the kernel one.
+*/
 typedef int ums_complist_id;
+
+/**
+ * @brief compelem identifier
+ *
+ * Duplicate of the kernel one.
+*/
 typedef int ums_compelem_id;
+
+/**
+ * @brief ums scheduler identifier
+ *
+ * Duplicate of the kernel one.
+*/
 typedef int ums_sched_id;
+
+/**
+ * @brief ums function for both (entry and worker)
+*/
 typedef int (*ums_function)(int);
 
 int EnterUmsSchedulingMode(ums_function entry_point,
