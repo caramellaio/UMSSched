@@ -47,9 +47,9 @@
  * @struct ums_context 
  * \brief The context of a thread usable for UMS context switch
  *
- * @pt_regs: value of the general registers of the task.
+ * @var pt_regs: value of the general registers of the task.
  *
- * @fpu_regs: value of the register for floating point operations.
+ * @var fpu_regs: value of the register for floating point operations.
  *
  * The ums_context struct is a structure in charge of storing information
  * of a task that can be executed by another `host` task through a UMS switch
