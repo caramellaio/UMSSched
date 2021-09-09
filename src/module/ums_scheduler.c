@@ -134,7 +134,7 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 
 	ums_sched = (struct ums_scheduler*) kmalloc(sizeof(struct ums_scheduler), GFP_KERNEL);
 
-	if (unlikely(ums_sched)) 
+	if (unlikely(! ums_sched))
 		return -EFAULT;
 
 	init_ums_scheduler(ums_sched, *identifier, comp_list_id);
