@@ -238,7 +238,11 @@ int WaitUmsChildren(void)
 			fprintf(stderr, "Error: during wait!\n");
 
 		list_del(&saved_id->list);
+		free(saved_id->stack);
 	}
+
+	/* close global /dev file */
+	close(global_fd);
 
 	return 0;
 }
