@@ -64,6 +64,7 @@
 	do {							\
 		(elem)->reserve_head = list;			\
 		list_add(&(elem)->reserve_list, list);		\
+		(elem)->pid = current->pid;			\
 	 } while (0)
 
 /**
@@ -95,6 +96,7 @@
 	do {							\
 		list_del(&(elem)->reserve_list);		\
 		(elem)->reserve_head = NULL;			\
+		(elem)->pid = -1;				\
 	} while (0)
 
 /**
@@ -130,6 +132,26 @@
 				    &(complist)->ready_lock);	\
 		up(&complist->elem_sem);			\
 	} while (0)
+
+/**
+ * @brief Ensure that current can run this compelem
+ *
+ * @param[in] compelem: completion element
+ *
+ * @return 0 if ok, otherwise non-zero
+*/
+#define __check_pid(compelem)					\
+	(compelem->pid != current->pid)
+
+/**
+ * @brief Ensure that current can run this completion list
+ *
+ * @param[in] compelem: completion list
+ *
+ * @return 0 if ok, otherwise non-zero
+*/
+#define __check_tgid(complist)					\
+	(complist->tgid != current->tgid)
 
 /**
  * @brief Constant for the idle string used in complem proc file
@@ -482,25 +504,36 @@ int ums_compelem_add(ums_compelem_id* result,
 
 	id_read_trylock_region(lock, iter, locked) {
 		complist = lock->data;
-		compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
 
-		if (! compelem) 
-			return -1;
+		if (complist->tgid != current->tgid) {
+			res = -EFAULT;
+		}
+		else {
+			compelem = kmalloc(sizeof(struct ums_compelem), GFP_KERNEL);
 
-		res = new_compelement(*result, complist, compelem);
+			if (unlikely(! compelem))  {
+				res = -1;
+			}
+			else {
+				res = new_compelement(*result, complist, compelem);
 
-		__register_compelem(complist, compelem);
+				__register_compelem(complist, compelem);
+			}
+		}
 	}
+
+	if (res)
+		return res;
 
 	/* lock failed: complist is getting destroyed */
 	if (! locked)
-		return -1;
+		return -EFAULT;
 
 	/* copy to the user the current id before sleeping forever */
 	/* When a scheduler thread will wake up he will have the correct 
 	 * informations */
 	if (copy_to_user(user_data, result, sizeof(ums_compelem_id)))
-		return -1;
+		return -EFAULT;
 
 	/* block completion element */
 	set_current_state(TASK_INTERRUPTIBLE);
@@ -531,6 +564,9 @@ int ums_compelem_remove(ums_compelem_id id)
 	__get_from_compelem_id(id, &compelem);
 
 	if (! compelem)
+		return -EFAULT;
+
+	if (unlikely(compelem->pid) != current->pid)
 		return -EFAULT;
 
 	hash_del_rcu(&compelem->list);
@@ -692,6 +728,11 @@ int ums_complist_reserve(ums_complist_id comp_id,
 	if (! id_read_trylock(lock))
 		return -1;
 
+	if (unlikely(__check_tgid(complist))) {
+		res = -1;
+		goto complist_reserve_exit;
+	}
+
 	/* reserve list is destroyed in Execute function by the choosen compelem */
 	reserve_list = kmalloc(sizeof(struct list_head), GFP_KERNEL);
 
@@ -762,6 +803,9 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 	if (! compelem)
 		return -EFAULT;
 
+	if (unlikely(__check_pid(compelem)))
+		return -EFAULT;
+
 	get_ums_context(current, &compelem->entry_ctx);
 
 	__register_compelem(compelem->complist, compelem);
@@ -775,7 +819,8 @@ int ums_compelem_store_reg(ums_compelem_id compelem_id)
 /**
  * @brief Execute a reserved completion element
  *
- * @todo Add a way to check compelem real owner!!
+ * @param[in] compelem_id: completion element identifier
+ * @param[in] host_id: scheduler executer id
 */
 int ums_compelem_exec(ums_compelem_id compelem_id,
 		      ums_sched_id host_id)
@@ -790,6 +835,11 @@ int ums_compelem_exec(ums_compelem_id compelem_id,
 	if (! compelem) {
 		return -EFAULT;
 	}
+
+	/* Here __check_pid is used to ensure that the caller already reserved
+	 * this compelem */
+	if (__check_pid(compelem))
+		return -EFAULT;
 
 	/* completion element must be reserved */
 	if (! compelem->reserve_head)

@@ -132,6 +132,10 @@ struct ums_compelem {
 	 * a scheduler thread. */
 	struct ums_context entry_ctx;
 
+	/** Either running or reserver pid. This field is important to prevent
+	 * non authorized access to the completion element */
+	pid_t pid;
+
 	/** Time where the last context switch occured (we consider entering in
 	 * worker thread not exit) */
 	u64 switch_time;
