@@ -127,7 +127,8 @@ int ums_compelem_add(ums_compelem_id* result,
 		     void * __user user_data);
 
 int ums_complist_add_scheduler(ums_complist_id id, 
-			       ums_sched_id sched_id);
+			       ums_sched_id sched_id,
+			       pid_t tgid);
 
 int ums_compelem_remove(ums_compelem_id id);
 

@@ -135,14 +135,16 @@ int ums_sched_add(ums_complist_id comp_list_id, ums_sched_id* identifier)
 	ums_sched = (struct ums_scheduler*) kmalloc(sizeof(struct ums_scheduler), GFP_KERNEL);
 
 	if (unlikely(ums_sched)) 
-		return -EFAULT
+		return -EFAULT;
+
 	init_ums_scheduler(ums_sched, *identifier, comp_list_id);
 	
 	/* This function has 2 important goals:
 	 * check if complist with `comp_list_id` exists
 	 * append the current scheduler entry in the list 
 	*/
-	if (ums_complist_add_scheduler(comp_list_id, ums_sched->id)) {
+	if (ums_complist_add_scheduler(comp_list_id, ums_sched->id, 
+				       ums_sched->tgid)) {
 		ums_sched_remove(ums_sched->id);
 		return -EFAULT;
 	}
@@ -505,6 +507,7 @@ static void init_ums_scheduler(struct ums_scheduler* sched,
 
 	sched->id = id;
 	sched->comp_id = comp_id;
+	sched->tgid = current->tgid;
 
 	if (! id_write_trylock(lock))
 		printk(KERN_ERR "Expecting lock to be free!\n");

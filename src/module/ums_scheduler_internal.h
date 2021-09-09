@@ -100,6 +100,11 @@ struct ums_scheduler {
 	ums_sched_id id;
 
 	/**
+	 * @brief tgid allowed to access to this scheduler
+	*/
+	pid_t tgid;
+
+	/**
 	 * @brief Completion list linked to the scheduler
 	 *
 	 * The completion list will give to this (and possibly other) schedulers

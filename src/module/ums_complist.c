@@ -337,9 +337,11 @@ int ums_complist_add(ums_complist_id *result)
  *
  * @param[in] id: identifier of the completion list
  * @param[in] sched_id: identifier of the scheduler to be added
+ * @param[in] tgid: group id of the scheduler
  *
  * Insert the index of the scheduler inside a list used to keep track of the
- * scheduler that are using this completion list.
+ * scheduler that are using this completion list. If the thread group id of
+ * the scheduler is different from the complist one return an error.
  * 
  * @note The procedure uses spin_lock for the list and read lock for the 
  *	scheduler, hence, it is thread safe.
@@ -347,7 +349,8 @@ int ums_complist_add(ums_complist_id *result)
  * @return 0 if no error occured, non-zero otherwise
 */
 int ums_complist_add_scheduler(ums_complist_id id, 
-			       ums_sched_id sched_id)
+			       ums_sched_id sched_id,
+			       pid_t tgid)
 {
 	int res;
 	int iter;
@@ -372,10 +375,18 @@ int ums_complist_add_scheduler(ums_complist_id id,
 	sched_list->id = sched_id;
 
 	id_read_trylock_region(lock, iter, res) {
-		spin_lock(&complist->schedulers_lock);
-		list_add(&sched_list->list, &complist->schedulers);
-		spin_unlock(&complist->schedulers_lock);
+		if (tgid == complist->tgid) {
+			res = -EFAULT;
+		}
+		else {
+			spin_lock(&complist->schedulers_lock);
+			list_add(&sched_list->list, &complist->schedulers);
+			spin_unlock(&complist->schedulers_lock);
+		}
 	}
+
+	if (res)
+		kfree(sched_list);
 
 	return res;
 }
