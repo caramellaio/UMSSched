@@ -1,3 +1,14 @@
+/**
+ * @author Alberto Bombardelli
+ *
+ * @file Implementation file of completion list sub-module
+ *
+ * This file contains the function definition and the internal variables of
+ * the completion lists and completion elements.
+ *
+ * @sa ums_complist.h
+ * @sa ums_complist_internal.h
+*/
 #include "ums_complist.h"
 #include "ums_complist_internal.h"
 /* Only for delete part */
@@ -246,6 +257,7 @@ static ssize_t compelem_proc_read(struct file *file,
  *
  * @sa compelem_proc_read
  * @sa ums_compelem
+ * @sa ums_sched_worker_proc_ops
 */
 static struct proc_ops ums_compelem_proc_ops =
 {

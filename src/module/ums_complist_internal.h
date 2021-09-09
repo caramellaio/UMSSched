@@ -8,6 +8,7 @@
  * can be file in file ums_complist.c.
  *
  * @sa ums_complist.c
+ * @sa ums_complist.h
 */
 #ifndef __UMS_COMPLIST_INTERNAL_H__
 #define __UMS_COMPLIST_INTERNAL_H__
