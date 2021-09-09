@@ -11,11 +11,10 @@
 #include <asm/uaccess.h> /* for put_user */
 
 #include "ums_device.h"
+#include "ums_device_internal.h"
 #include "ums_scheduler.h"
 #include "ums_complist.h"
 #include "ums_proc.h"
-/* TODO: Move ums requests in another file */
-#include "../shared/ums_request.h"
 
 
 MODULE_LICENSE("GPL");
@@ -120,6 +119,16 @@ void cleanup_module(void)
 	printk(KERN_DEBUG MODULE_NAME_LOG "exit\n");
 }
 
+/**
+ * @brief ioctl function to enable comunication between user and kernel space
+ *
+ * This function carries the requests that arrive from userspace and pass them
+ * to the correct modules
+ *
+ * For details look at the modules and at the device codes in ums_device.h.
+ *
+ * @sa ums_device.h
+*/
 static long device_ioctl(struct file *file, unsigned int request, unsigned long data)
 {
 	printk(KERN_DEBUG MODULE_NAME_LOG
@@ -197,7 +206,6 @@ static long device_ioctl(struct file *file, unsigned int request, unsigned long 
 
 		if (copy_from_user(in_buf, (void*)data, sizeof(ums_sched_id))) {
 			kfree(in_buf);
-			/* TODO: temporary */
 			printk("Failed copy_from_user\n");
 			return FAILURE;
 		}
