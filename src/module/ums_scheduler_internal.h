@@ -45,6 +45,13 @@ struct ums_sched_worker {
 	ums_compelem_id current_elem;
 
 	/**
+	 * @brief Linked completion list
+	 *
+	 * Is the same one of the owner scheduler
+	*/
+	ums_complist_id complist_id;
+
+	/**
 	 * @brief entry for pid to sched_worker hashtable
 	*/
 	struct hlist_node list;

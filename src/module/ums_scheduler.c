@@ -207,6 +207,7 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 
 		/* set cpu var to current. */
 		worker->owner = sched;
+		worker->complist_id = sched->comp_id;
 		worker->worker = current;
 		worker->n_switch = 0;
 		worker->switch_time = 0;
@@ -214,8 +215,7 @@ int ums_sched_register_sched_thread(ums_sched_id sched_id)
 		gen_ums_context(current, &worker->entry_ctx);
 		put_cpu_ptr(sched->workers);
 
-		/* TODO: rcu?? */
-		hash_add(ums_sched_worker_hash, &worker->list, worker->worker->pid);
+		hash_add_rcu(ums_sched_worker_hash, &worker->list, worker->worker->pid);
 
 		/* generate proc directory */
 		ums_proc_geniddir(get_cpu(), sched->proc_dir, &worker->proc_dir);
@@ -307,7 +307,6 @@ int ums_sched_remove(ums_sched_id id)
 	}
 
 	kfree(sched);
-	/* TODO: add rwlock to reclaim list!!! */
 	
 	return 0;
 }
@@ -424,8 +423,7 @@ int ums_sched_complist_by_current(ums_complist_id *res_id)
 	if (! worker)
 		return -EFAULT;
 
-	/* TODO: set comp_id directly in worker during his creation */
-	*res_id = worker->owner->comp_id;
+	*res_id = worker->complist_id;
 
 	return ! *res_id;
 }
@@ -634,7 +632,7 @@ static ssize_t sched_worker_proc_read(struct file *file,
 		return -EFAULT;
 
 	/* print completion list */
-	len += sprintf(buf + len, "complist=%u\n", worker->owner->comp_id);
+	len += sprintf(buf + len, "complist=%u\n", worker->complist_id);
 
 	if (len > count || len < 0)
 		return -EFAULT;
