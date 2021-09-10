@@ -81,6 +81,10 @@ These functions do not necessary map 1 to 1 to an **ioctl** request call, for in
 It is necessary to create new threads for both **scheduler threads** and **worker threads**. To do so, the user mode module is in charge of creating the threads via `clone` syscall and, in the end dealloc all the stacks of the generated threads.
 
 # Results
+The context switch have been tested in a benchmark model. The result is the following:
+it takes 0.000021 seconds to pass from a worker, to the scheduler to the worker again.
+Considering that this change involves also the reservation process it seems like a 
+good result.
 
 # Conclusions
 This project produced a module that implements user mode scheduling, it provides APIs that works using `ioctl` syscalls on the kernel module. It has been tested using multiple `schedulers` and completion lists together and its context switch times were calculated.

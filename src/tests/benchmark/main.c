@@ -6,6 +6,8 @@
 #include <time.h>
 
 static int c = 0;
+
+static double total = 0;
 static int _timer(int ums_sched);
 
 static int entry_point(int ums_sched);
@@ -16,14 +18,11 @@ int main(void) {
 	ums_sched_id sched_id2;
 	ums_complist_id complist_id;
 
-	ums_function funcs[4] = {
-		_timer,
-		_timer,
-		_timer,
+	ums_function funcs[1] = {
 		_timer,
 	};
 
-	if (CreateUmsCompletionList(&complist_id, funcs, 4)) {
+	if (CreateUmsCompletionList(&complist_id, funcs, 1)) {
 		fprintf(stderr, "Fail creating complist\n");
 		return -1;
 	}
@@ -31,10 +30,11 @@ int main(void) {
 	fprintf(stderr, "Completion list: %d\n", complist_id);
 
 	EnterUmsSchedulingMode(entry_point, complist_id, &sched_id);
-	EnterUmsSchedulingMode(entry_point, complist_id, &sched_id2);
 
 	if (WaitUmsChildren())
 		fprintf(stderr, "Oh no, res: %d", err ? err : (++err));
+
+	printf("FINAL: %lf\n", total);
 	return err;
 }
 
@@ -42,9 +42,8 @@ int main(void) {
 static int _timer(int ums_sched)
 {
 	int times =0;
-	double total = 0;
 
-	for (times = 0; times < 1; times++) {
+	for (times = 0; times < 500; times++) {
 		clock_t now;
 		clock_t local = 0;
 		clock_t last_time = clock();
