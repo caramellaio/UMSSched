@@ -438,6 +438,8 @@ int ums_sched_complist_by_current(ums_complist_id *res_id)
 	if (! worker)
 		return -EFAULT;
 
+	get_ums_context(current, &worker->entry_ctx);
+
 	*res_id = worker->complist_id;
 
 	return ! *res_id;
@@ -569,7 +571,8 @@ static void deinit_ums_scheduler(struct ums_scheduler* sched)
 	for_each_possible_cpu(cpu) {
 		struct ums_sched_worker *worker = *per_cpu_ptr(sched->workers, cpu);
 
-		send_sig(SIGINT, worker->worker, 0);
+		if (worker->worker)
+			send_sig(SIGINT, worker->worker, 0);
 
 		/* remove procfs data */
 		ums_proc_delete(worker->proc_info_file);
