@@ -4,10 +4,18 @@ _A.Y. 2020/2021_
 Author: Alberto Bombardelli (1903114)
 
 # Introduction
-This project aims at permitting to the user to build his own scheduler. It does it by adding a new extenal kernel module that works and **x86_64** architecture
-on linux version **5.13.0**. 
+This project aims at permitting to the user to build his own
+simple user mode scheduler. It does it by adding a new extenal kernel module.
+This project have been developed for  linux version: **5.13.0**. 
 # General structure
-The module is divided in 2 parts, one in user mode and the other in kernel mode. Even if the majority of the work is done by the kernel module, the user
+The module is divided in 2 parts, one in user mode and the other in kernel mode.
+The kernel module is in charge of switching context, keeping the data structures
+and logically managing the state of the workers and schedulers. The 
+
+In this project scheduling is done assuming that all the workers uses the same
+memory map. 
+
+Even if the majority of the work is done by the kernel module, the user
 module is not a mere **ioctl** system call callers. It is in charge of various parts, in fact the whole work is built on the cohesion of these 2 parts.
 
 ## Kernel module
@@ -26,16 +34,33 @@ After its registration triggered by `insmod` it can be found in **/dev/umsschedd
 A detailed documentation of the ioctl requests can be find in the documentation.
 
 ### Completion list and completion elements
-This module is in charge of the completion lists. It 
+This module is in charge of the completion lists and its elements. It is composed
+mainly by 2 data structures: `struct ums_complist` and `struct ums_compelem`.
+`
 #### Completion list
-A completion list is not a mere list of completion elements, it is a logical entity that manages them. 
-It ensures that worker thread are not reserved by multiples processes and guarantee that the completion elements shares lays in the same thread group. This
+A completion list is not a mere list of completion elements, it is a logical entity that manages its completion
+elements. 
+It ensures that worker thread are not reserved by multiples processes and guarantee 
+that the completion elements shares lays in the same thread group. This
 structure is also in charge of reserving the elements to the scheduler thread.
 
 #### Completion elements
-The facto the scheduler threads, they are owned by the completion list and executed by the scheduler threads.
+
+A completion element is the job to be executed. It internally has 3 states:
+`running`, `idle`, `reserved`. A job is running when a **scheduler thread** executes
+it. It is **idle** when it is ready for the reservation. A job is **reserved**
+when a scheduler thread dequeues it from its completion list.
+A completion element cannot pass from **idle** to **running** without being reserved
+before. 
+
 ### User mode scheduler and user mode scheduler worker
-A scheduler is a logical entity composed of *n_cpu* scheduler threads. Each scheduler thread shares the same memory map with the completion list's elements that are linked with the scheduler.
+
+A scheduler is a logical entity composed of *n_cpu* scheduler threads.
+Each scheduler thread shares the same memory map with the completion list's
+elements that are linked with the scheduler. Each scheduler thread can either
+executer a completion element (with exec) or execute its own thread (yield).
+When a scheduler thread terminates, his thread is silently removed while thread
+scheduler thread entry remain until the scheduler is removed/
 
 ### Context switch
 The physical context switch have been done using `pt_regs` and `fpu` that contain respectively the standard user registers and the floating point aritmetic registers. 
@@ -82,7 +107,7 @@ It is necessary to create new threads for both **scheduler threads** and **worke
 
 # Results
 The context switch have been tested in a benchmark model. The result is the following:
-it takes 0.000021 seconds to pass from a worker, to the scheduler to the worker again.
+it takes from 0.000021 to 0.000041 seconds to pass from a worker, to the scheduler to the worker again.
 Considering that this change involves also the reservation process it seems like a 
 good result.
 
@@ -90,4 +115,4 @@ good result.
 This project produced a module that implements user mode scheduling, it provides APIs that works using `ioctl` syscalls on the kernel module. It has been tested using multiple `schedulers` and completion lists together and its context switch times were calculated.
 
 # References
-I used as reference the linux kernel source code, the lecture material of this course, some stackoverflow questions and some kernel articles. 
+I used as reference the linux kernel source code and documentation, the lecture material of this course, some stackoverflow questions and some kernel articles. 
