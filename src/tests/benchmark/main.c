@@ -16,11 +16,14 @@ int main(void) {
 	ums_sched_id sched_id2;
 	ums_complist_id complist_id;
 
-	ums_function funcs[1] = {
+	ums_function funcs[4] = {
+		_timer,
+		_timer,
+		_timer,
 		_timer,
 	};
 
-	if (CreateUmsCompletionList(&complist_id, funcs, 1)) {
+	if (CreateUmsCompletionList(&complist_id, funcs, 4)) {
 		fprintf(stderr, "Fail creating complist\n");
 		return -1;
 	}
@@ -41,23 +44,27 @@ static int _timer(int ums_sched)
 	int times =0;
 	double total = 0;
 
-	fprintf(stderr, "I am completion element %d\n", ums_sched);
-	fprintf(stderr, "multiplying c\n");
-	for (times = 0; times < 50; times++) {
+	for (times = 0; times < 1; times++) {
 		clock_t now;
+		clock_t local = 0;
 		clock_t last_time = clock();
-		double local = 0;
-		UmsThreadYield();
-		now = clock();
 
-		local = (double)(now - last_time) / CLOCKS_PER_SEC;
+		printf("\n\n\nLast time: %ld\n", last_time);
+		UmsThreadYield();
+
+		now = clock();
+		printf("Now: %ld\n\n\n\n", now);
+
+		local = (now - last_time);
 
 		total += local;
-		fprintf(stdout, "LOCAL TIME: %lf\n", local);
+		fprintf(stdout, "LOCAL TIME: %ld\n", local);
 		times++;
 	}
 
-	total = total / times;
+	total /=  times;
+
+	total /= CLOCKS_PER_SEC;
 
 	fprintf(stdout, "AVG TIME: %lf\n", total);
 	return c;
