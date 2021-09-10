@@ -618,6 +618,7 @@ int ums_complist_init(void)
 	/* TODO: use hash_rwlock_init */
 	hash_init(ums_complist_hash);
 	hash_init(ums_compelem_hash);
+	id_rwlock_init_mod();
 
 	return 0;
 }
@@ -656,7 +657,23 @@ int ums_complist_proc_init(struct proc_dir_entry *ums_dir)
 */
 void ums_complist_deinit(void)
 {
-	// TODO: implement
+	int bkt;
+	struct list_head *iter, *safe_iter;
+	struct hlist_node *tmp;
+	struct ums_compelem *res_elem;
+	struct id_rwlock *tmp_rwlock;
+
+	id_rwlock_deinit_mod(iter, safe_iter, tmp_rwlock, deinit_complist);
+
+	hash_for_each_safe(ums_compelem_hash, bkt, tmp, res_elem, list) {
+		if (res_elem) {
+			ums_proc_delete(res_elem->proc_file);
+
+			wake_up_process(res_elem->elem_task);
+			kfree(res_elem);
+		}
+
+	}
 }
 
 /**

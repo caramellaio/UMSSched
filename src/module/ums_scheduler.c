@@ -12,7 +12,6 @@
 #include "ums_scheduler.h"
 #include "ums_scheduler_internal.h"
 #include "ums_complist.h"
-#include "ums_complist_internal.h"
 #include "ums_context_switch.h"
 #include "id_rwlock.h"
 #include "ums_proc.h"
@@ -456,6 +455,8 @@ int ums_sched_init(void)
 {
 	hashrwlock_init(ums_sched_hash);
 	hash_init(ums_sched_worker_hash);
+	id_rwlock_init_mod();
+
 	return 0;
 }
 
@@ -482,7 +483,10 @@ int ums_sched_proc_init(struct proc_dir_entry *ums_dir)
 */
 void ums_sched_deinit(void)
 {
-	/* TODO: here various things should be done! */
+	struct list_head *iter, *safe_iter;
+	struct id_rwlock *tmp_rwlock;
+
+	id_rwlock_deinit_mod(iter, safe_iter, tmp_rwlock, deinit_ums_scheduler);
 }
 
 /**

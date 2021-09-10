@@ -14,6 +14,9 @@
 
 #include <linux/hashtable.h>
 #include <linux/rwlock.h>
+#include <linux/list.h>
+
+static struct list_head id_rwlock_reclaim_list;
 
 /**
  * @struct id_rwlock
@@ -35,6 +38,8 @@ struct id_rwlock {
 	 * @brief list node used by hashrwlock
 	*/
 	struct hlist_node list;
+
+	struct list_head rec_list;
 
 	/**
 	 * @brief The real lock used to access to data
@@ -116,12 +121,15 @@ struct id_rwlock {
  * @param[in] _data: pointer linked to the lock
  * @param[out] _lock: out id_rwlock res
  *
+ * Add also it to the reclaim list
+ *
  * @return None: do/while macro
 */
 #define id_rwlock_init(_id, _data, _lock)				\
 	do {								\
 		(_lock)->id = _id;					\
 		(_lock)->data = _data;					\
+		list_add(&(_lock)->rec_list, &id_rwlock_reclaim_list);	\
 		rwlock_init(&(_lock)->lock);				\
 	} while (0)
 
@@ -181,4 +189,20 @@ struct id_rwlock {
 #define id_write_unlock(lock)						\
 	(write_unlock(&(lock)->lock))
 
+
+#define id_rwlock_init_mod()						\
+	(INIT_LIST_HEAD(&id_rwlock_reclaim_list))
+
+#define id_rwlock_deinit_mod(iter, safe_iter, tmp_rwlock, deinit_data)	\
+	do {								\
+		list_for_each_safe((iter), (safe_iter),			\
+				   &id_rwlock_reclaim_list) {		\
+			tmp_rwlock = list_entry(iter,			\
+					        struct id_rwlock,	\
+						rec_list);		\
+			if (tmp_rwlock->data)				\
+				deinit_data(tmp_rwlock->data);		\
+			kfree(tmp_rwlock);				\
+		}							\
+	} while (0)
 #endif /* __ID_RWLOCK_H__ */

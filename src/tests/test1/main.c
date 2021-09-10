@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define SLEEP_TIME 1
+#define SLEEP_TIME 5
 static int c = 0;
 static int index = 0;
 
